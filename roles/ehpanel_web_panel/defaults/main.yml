@@ -51,4 +51,5 @@ ehpanel_web_panel_local_dovecot_passwd_file: /etc/dovecot/ehpanel-users
 ehpanel_web_panel_local_postfix_virtual_domains_file: /etc/postfix/ehpanel-virtual-domains
 ehpanel_web_panel_local_postfix_virtual_mailboxes_file: /etc/postfix/ehpanel-virtual-mailboxes
 ehpanel_web_panel_local_file_manager_temp_root: "{{ ehpanel_web_panel_root }}/media/file-manager"
+ehpanel_web_panel_local_moodle_download_url: ""
 ehagent_enabled: false
