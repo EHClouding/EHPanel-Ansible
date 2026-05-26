@@ -1,0 +1,172 @@
+---
+- name: Install Certbot packages via dnf
+  ansible.builtin.dnf:
+    name: "{{ certbot_packages }}"
+    state: present
+  when: certbot_install_method == "dnf"
+
+- name: Fail when Certbot email is missing
+  ansible.builtin.fail:
+    msg: "Set certbot_email or certbot_domains[].email to a real email before issuing certificates."
+  when:
+    - certbot_domains | length > 0
+    - certbot_email | length == 0
+    - certbot_domains | selectattr('email', 'defined') | list | length == 0
+
+- name: Ensure Certbot webroot challenge directory exists
+  ansible.builtin.file:
+    path: "{{ certbot_webroot_path }}/.well-known/acme-challenge"
+    owner: nginx
+    group: nginx
+    mode: "0755"
+    state: directory
+
+- name: Deploy temporary ACME HTTP vhosts
+  ansible.builtin.template:
+    src: ehpanel-acme.conf.j2
+    dest: "/etc/nginx/conf.d/ehpanel-acme-{{ item.domain }}.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ certbot_domains }}"
+  notify: reload nginx
+
+- name: Validate Nginx before ACME challenge
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Reload Nginx before ACME challenge
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
+  when: not ansible_check_mode
+
+- name: Install ACME webroot probe
+  ansible.builtin.copy:
+    dest: "{{ certbot_webroot_path }}/.well-known/acme-challenge/ehpanel-certbot-probe"
+    owner: nginx
+    group: nginx
+    mode: "0644"
+    content: "ehpanel-certbot-ok\n"
+
+- name: Verify ACME webroot through public HTTP
+  ansible.builtin.command: "curl -fsS http://{{ item.domain }}/.well-known/acme-challenge/ehpanel-certbot-probe"
+  loop: "{{ certbot_domains }}"
+  register: certbot_acme_probe
+  changed_when: false
+  failed_when: certbot_acme_probe.stdout | trim != 'ehpanel-certbot-ok'
+  when: not ansible_check_mode
+
+- name: Ensure EHPanel script directory exists
+  ansible.builtin.file:
+    path: /opt/ehpanel
+    owner: root
+    group: root
+    mode: "0755"
+    state: directory
+
+- name: Install Certbot deploy hook
+  ansible.builtin.copy:
+    dest: "{{ certbot_deploy_hook }}"
+    owner: root
+    group: root
+    mode: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      systemctl reload nginx || true
+      systemctl reload postfix || true
+      systemctl reload dovecot || true
+
+- name: Check existing certificates
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ item.domain }}/fullchain.pem"
+  loop: "{{ certbot_domains }}"
+  register: certbot_existing_certs
+
+- name: Issue missing certificates with webroot
+  ansible.builtin.command: >
+    certbot certonly
+    --webroot
+    -w {{ item.item.webroot | default(certbot_webroot_path) }}
+    -d {{ ([item.item.domain] + (item.item.aliases | default([]))) | join(' -d ') }}
+    --email {{ item.item.email | default(certbot_email) }}
+    --agree-tos
+    --non-interactive
+    --keep-until-expiring
+    --deploy-hook {{ certbot_deploy_hook }}
+    {{ '--staging' if certbot_staging else '' }}
+  loop: "{{ certbot_existing_certs.results }}"
+  when:
+    - not ansible_check_mode
+    - not item.stat.exists
+  changed_when: true
+
+- name: Configure HTTPS vhosts for issued certificates
+  ansible.builtin.template:
+    src: ehpanel-node-ssl.conf.j2
+    dest: "/etc/nginx/conf.d/ehpanel-node-ssl-{{ item.domain }}.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ certbot_domains }}"
+  notify: reload nginx
+
+- name: Select certificate for mail services
+  ansible.builtin.set_fact:
+    certbot_mail_service_domain: "{{ (certbot_domains | selectattr('mail_services', 'defined') | selectattr('mail_services') | map(attribute='domain') | list | first) | default('') }}"
+
+- name: Configure Postfix TLS certificate for mail services
+  ansible.builtin.command: "{{ item }}"
+  loop:
+    - "postconf -e smtpd_tls_cert_file=/etc/letsencrypt/live/{{ certbot_mail_service_domain }}/fullchain.pem"
+    - "postconf -e smtpd_tls_key_file=/etc/letsencrypt/live/{{ certbot_mail_service_domain }}/privkey.pem"
+  changed_when: true
+  notify: reload postfix
+  when:
+    - not ansible_check_mode
+    - certbot_mail_service_domain | length > 0
+
+- name: Configure Dovecot TLS certificate for mail services
+  ansible.builtin.lineinfile:
+    path: /etc/dovecot/conf.d/99-ehpanel.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - regexp: '^ssl_cert = <'
+      line: "ssl_cert = </etc/letsencrypt/live/{{ certbot_mail_service_domain }}/fullchain.pem"
+    - regexp: '^ssl_key = <'
+      line: "ssl_key = </etc/letsencrypt/live/{{ certbot_mail_service_domain }}/privkey.pem"
+  notify: restart dovecot
+  when:
+    - certbot_mail_service_domain | length > 0
+
+- name: Validate Nginx after HTTPS vhost configuration
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Reload Nginx after HTTPS vhost configuration
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
+  when: not ansible_check_mode
+
+- name: Enable Certbot renewal timer
+  ansible.builtin.systemd:
+    name: certbot-renew.timer
+    enabled: true
+    state: started
+  failed_when: false
+  when: not ansible_check_mode
+
+- name: Validate issued certificates
+  ansible.builtin.command: "certbot certificates"
+  register: certbot_certificates
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Show Certbot status
+  ansible.builtin.debug:
+    msg: "{{ certbot_certificates.stdout_lines | default(['Certbot check skipped in check mode']) }}"

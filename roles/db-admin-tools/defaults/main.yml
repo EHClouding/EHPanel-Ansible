@@ -1,0 +1,21 @@
+---
+db_admin_tools_enabled: true
+
+db_admin_tools_root: /usr/share/ehpanel-dbtools
+db_admin_tools_web_path: /var/www/html/ehpanel-dbtools
+db_admin_tools_config_dir: /etc/ehpanel/dbtools
+db_admin_tools_sso_secret_file: /etc/ehpanel/dbtools_sso_secret
+db_admin_tools_panel_base_url_file: /etc/ehpanel/server0_url
+db_admin_tools_panel_base_url: ""
+db_admin_tools_sso_secret: "{{ ehpanel_web_panel_dbtools_sso_secret | default(ehpanel_web_panel_secret_key | default('', true), true) }}"
+
+phpmyadmin_enabled: true
+phpmyadmin_download_url: https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.tar.gz
+phpmyadmin_install_dir: "{{ db_admin_tools_root }}/phpmyadmin"
+phpmyadmin_blowfish_secret_file: "{{ db_admin_tools_config_dir }}/phpmyadmin.secret"
+phpmyadmin_mariadb_host: 127.0.0.1
+phpmyadmin_mariadb_port: 3306
+
+adminer_enabled: true
+adminer_download_url: https://www.adminer.org/latest.php
+adminer_install_path: "{{ db_admin_tools_root }}/adminer.php"

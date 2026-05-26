@@ -1,0 +1,66 @@
+---
+openlitespeed_install: true
+openlitespeed_repo_script_url: https://repo.litespeed.sh
+openlitespeed_packages:
+  - openlitespeed
+  - lsphp83
+  - lsphp83-common
+  - lsphp83-mysqlnd
+  - lsphp83-pgsql
+  - lsphp83-process
+  - lsphp83-mbstring
+  - lsphp83-gd
+  - lsphp83-intl
+  - lsphp83-opcache
+  - lsphp83-xml
+  - lsphp83-zip
+  - lsphp84
+  - lsphp84-common
+  - lsphp84-mysqlnd
+  - lsphp84-pgsql
+  - lsphp84-process
+  - lsphp84-mbstring
+  - lsphp84-gd
+  - lsphp84-intl
+  - lsphp84-opcache
+  - lsphp84-xml
+  - lsphp84-zip
+openlitespeed_php83_packages:
+  - lsphp83
+  - lsphp83-common
+  - lsphp83-mysqlnd
+  - lsphp83-pgsql
+  - lsphp83-process
+  - lsphp83-mbstring
+  - lsphp83-gd
+  - lsphp83-intl
+  - lsphp83-opcache
+  - lsphp83-xml
+  - lsphp83-zip
+openlitespeed_php84_packages:
+  - lsphp84
+  - lsphp84-common
+  - lsphp84-mysqlnd
+  - lsphp84-pgsql
+  - lsphp84-process
+  - lsphp84-mbstring
+  - lsphp84-gd
+  - lsphp84-intl
+  - lsphp84-opcache
+  - lsphp84-xml
+  - lsphp84-zip
+openlitespeed_php85_packages:
+  - lsphp85
+  - lsphp85-common
+  - lsphp85-mysqlnd
+  - lsphp85-pdo
+  - lsphp85-process
+  - lsphp85-mbstring
+  - lsphp85-gd
+  - lsphp85-xml
+  - lsphp85-zip
+openlitespeed_service: lshttpd
+openlitespeed_home: /usr/local/lsws
+openlitespeed_backend_ip: 127.0.0.1
+openlitespeed_backend_port: 8088
+openlitespeed_enable_admin: false

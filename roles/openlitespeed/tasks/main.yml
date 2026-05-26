@@ -1,0 +1,135 @@
+---
+- name: Check OpenLiteSpeed installation
+  ansible.builtin.stat:
+    path: "{{ openlitespeed_home }}/bin/openlitespeed"
+  register: openlitespeed_binary
+
+- name: Download LiteSpeed repository installer
+  ansible.builtin.get_url:
+    url: "{{ openlitespeed_repo_script_url }}"
+    dest: /tmp/ehpanel-litespeed-repo.sh
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - openlitespeed_install | bool
+    - not openlitespeed_binary.stat.exists
+
+- name: Install LiteSpeed repository
+  ansible.builtin.command: /bin/bash /tmp/ehpanel-litespeed-repo.sh
+  args:
+    creates: /etc/yum.repos.d/litespeed.repo
+  when:
+    - openlitespeed_install | bool
+    - not ansible_check_mode
+
+- name: Install OpenLiteSpeed and LSPHP packages
+  ansible.builtin.dnf:
+    name: "{{ openlitespeed_packages }}"
+    state: present
+  when: openlitespeed_install | bool
+
+- name: Check LSPHP 8.3 binary
+  ansible.builtin.stat:
+    path: "{{ openlitespeed_home }}/lsphp83/bin/lsphp"
+  register: openlitespeed_lsphp83_binary
+  when: openlitespeed_install | bool
+
+- name: Check LSPHP 8.4 binary
+  ansible.builtin.stat:
+    path: "{{ openlitespeed_home }}/lsphp84/bin/lsphp"
+  register: openlitespeed_lsphp84_binary
+  when: openlitespeed_install | bool
+
+- name: Check LSPHP 8.5 binary
+  ansible.builtin.stat:
+    path: "{{ openlitespeed_home }}/lsphp85/bin/lsphp"
+  register: openlitespeed_lsphp85_binary
+  when: openlitespeed_install | bool
+
+- name: Install LSPHP 8.3 packages with RPM file conflict fallback
+  ansible.builtin.shell: |
+    set -euo pipefail
+    tmpdir="$(mktemp -d /tmp/ehpanel-lsphp83.XXXXXX)"
+    trap 'rm -rf "${tmpdir}"' EXIT
+    if dnf install -y {{ openlitespeed_php83_packages | join(' ') }}; then
+      exit 0
+    fi
+    cd "${tmpdir}"
+    dnf download --resolve {{ openlitespeed_php83_packages | join(' ') }}
+    rpm -Uvh --replacefiles ./*.rpm
+  args:
+    executable: /bin/bash
+    creates: "{{ openlitespeed_home }}/lsphp83/bin/lsphp"
+  when:
+    - openlitespeed_install | bool
+    - not ansible_check_mode
+    - not openlitespeed_lsphp83_binary.stat.exists
+
+- name: Install LSPHP 8.4 packages with RPM file conflict fallback
+  ansible.builtin.shell: |
+    set -euo pipefail
+    tmpdir="$(mktemp -d /tmp/ehpanel-lsphp84.XXXXXX)"
+    trap 'rm -rf "${tmpdir}"' EXIT
+    if dnf install -y {{ openlitespeed_php84_packages | join(' ') }}; then
+      exit 0
+    fi
+    cd "${tmpdir}"
+    dnf download --resolve {{ openlitespeed_php84_packages | join(' ') }}
+    rpm -Uvh --replacefiles ./*.rpm
+  args:
+    executable: /bin/bash
+    creates: "{{ openlitespeed_home }}/lsphp84/bin/lsphp"
+  when:
+    - openlitespeed_install | bool
+    - not ansible_check_mode
+    - not openlitespeed_lsphp84_binary.stat.exists
+
+- name: Install LSPHP 8.5 packages with RPM file conflict fallback
+  ansible.builtin.shell: |
+    set -euo pipefail
+    tmpdir="$(mktemp -d /tmp/ehpanel-lsphp85.XXXXXX)"
+    trap 'rm -rf "${tmpdir}"' EXIT
+    if dnf install -y {{ openlitespeed_php85_packages | join(' ') }}; then
+      exit 0
+    fi
+    cd "${tmpdir}"
+    dnf download --resolve {{ openlitespeed_php85_packages | join(' ') }}
+    rpm -Uvh --replacefiles ./*.rpm
+  args:
+    executable: /bin/bash
+    creates: "{{ openlitespeed_home }}/lsphp85/bin/lsphp"
+  when:
+    - openlitespeed_install | bool
+    - not ansible_check_mode
+    - not openlitespeed_lsphp85_binary.stat.exists
+
+- name: Configure OpenLiteSpeed default listener as loopback backend
+  ansible.builtin.replace:
+    path: "{{ openlitespeed_home }}/conf/httpd_config.conf"
+    regexp: 'address\s+.*:{{ openlitespeed_backend_port }}'
+    replace: "address                 {{ openlitespeed_backend_ip }}:{{ openlitespeed_backend_port }}"
+  notify: restart openlitespeed
+  when:
+    - openlitespeed_install | bool
+    - not ansible_check_mode
+
+- name: Disable public WebAdmin listener unless explicitly enabled
+  ansible.builtin.replace:
+    path: "{{ openlitespeed_home }}/admin/conf/admin_config.conf"
+    regexp: 'address\s+.*:7080'
+    replace: "address                 127.0.0.1:7080"
+  notify: restart openlitespeed
+  when:
+    - openlitespeed_install | bool
+    - not openlitespeed_enable_admin | bool
+    - not ansible_check_mode
+
+- name: Enable and start OpenLiteSpeed
+  ansible.builtin.systemd:
+    name: "{{ openlitespeed_service }}"
+    enabled: true
+    state: started
+  when:
+    - openlitespeed_install | bool
+    - not ansible_check_mode

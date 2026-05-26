@@ -1,0 +1,22 @@
+---
+# RIESGO R07: Verificar repo de Rspamd para RHEL 10.
+# https://rspamd.com/downloads.html
+rspamd_packages:
+  - rspamd
+rspamd_repo_enabled: true
+rspamd_repo_channel: "stable"
+rspamd_repo_url: "https://rspamd.com/rpm-stable/centos-{{ ansible_distribution_major_version }}/rspamd.repo"
+rspamd_controller_password: "{{ vault_rspamd_controller_password | default('') }}"
+rspamd_redis_host:          "127.0.0.1"
+rspamd_redis_port:          6379
+rspamd_redis_password:      "{{ vault_valkey_password | default('') }}"
+rspamd_dkim_selector:       "mail"
+rspamd_dkim_path:           "/var/lib/rspamd/dkim"
+rspamd_milter_socket:       "127.0.0.1:11332"
+rspamd_controller_bind:     "127.0.0.1:11334"
+rspamd_normal_bind:         "127.0.0.1:11333"
+rspamd_enable_dkim:         true
+rspamd_enable_arc:          true
+rspamd_enable_greylisting:  false
+rspamd_log_level:           "info"
+rspamd_enable_postfix_milter: true

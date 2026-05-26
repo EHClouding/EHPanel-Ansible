@@ -1,0 +1,67 @@
+server {
+    listen 80;
+    server_name {{ ehpanel_web_panel_domain }};
+
+    access_log /var/log/nginx/ehpanel-web-access.log;
+    error_log /var/log/nginx/ehpanel-web-error.log;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root {{ ehpanel_web_panel_acme_webroot }};
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    location ^~ /ehpanel-dbtools/ {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://127.0.0.1:8080/ehpanel-dbtools/;
+    }
+
+{% if ehpanel_web_panel_ssl_enabled | bool %}
+    location / {
+        return 301 https://$host$request_uri;
+    }
+{% else %}
+    location / {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://{{ ehpanel_web_panel_bind }}:{{ ehpanel_web_panel_port }};
+    }
+{% endif %}
+}
+
+{% if ehpanel_web_panel_ssl_enabled | bool %}
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name {{ ehpanel_web_panel_domain }};
+
+    ssl_certificate {{ ehpanel_web_panel_ssl_cert }};
+    ssl_certificate_key {{ ehpanel_web_panel_ssl_key }};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    access_log /var/log/nginx/ehpanel-web-ssl-access.log;
+    error_log /var/log/nginx/ehpanel-web-ssl-error.log;
+
+    location ^~ /ehpanel-dbtools/ {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_pass http://127.0.0.1:8080/ehpanel-dbtools/;
+    }
+
+    location / {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_pass http://{{ ehpanel_web_panel_bind }}:{{ ehpanel_web_panel_port }};
+    }
+}
+{% endif %}

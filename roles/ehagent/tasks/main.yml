@@ -1,0 +1,97 @@
+---
+- name: Create ehagent group
+  ansible.builtin.group:
+    name: "{{ ehagent_group }}"
+    system: true
+    state: present
+
+- name: Create ehagent user
+  ansible.builtin.user:
+    name: "{{ ehagent_user }}"
+    group: "{{ ehagent_group }}"
+    home: "{{ ehagent_install_dir }}"
+    shell: /sbin/nologin
+    system: true
+    create_home: false
+    state: present
+
+- name: Create agent directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ ehagent_install_dir }}", owner: root, group: root, mode: "0755" }
+    - { path: "/etc/ehagent", owner: "{{ ehagent_user }}", group: "{{ ehagent_group }}", mode: "0700" }
+    - { path: "/var/log/ehagent", owner: "{{ ehagent_user }}", group: "{{ ehagent_group }}", mode: "0750" }
+
+- name: Install agent binary from local controller path
+  ansible.builtin.copy:
+    src: "{{ ehagent_binary_local_path }}"
+    dest: "{{ ehagent_install_dir }}/ehagent-web"
+    owner: root
+    group: root
+    mode: "0755"
+  when: ehagent_binary_local_path | length > 0
+  notify: restart ehagent-web
+
+- name: Download agent binary from release URL
+  ansible.builtin.get_url:
+    url: "{{ ehagent_binary_url }}"
+    dest: "{{ ehagent_install_dir }}/ehagent-web"
+    owner: root
+    group: root
+    mode: "0755"
+    checksum: "{{ ehagent_binary_checksum | default(omit) }}"
+  when: ehagent_binary_local_path | length == 0 and ehagent_binary_url | length > 0
+  notify: restart ehagent-web
+
+- name: Check existing agent binary
+  ansible.builtin.stat:
+    path: "{{ ehagent_install_dir }}/ehagent-web"
+  register: ehagent_existing_binary
+
+- name: Fail when no agent binary source is configured
+  ansible.builtin.fail:
+    msg: "Set ehagent_binary_local_path or ehagent_binary_url, or preinstall {{ ehagent_install_dir }}/ehagent-web."
+  when:
+    - ehagent_binary_local_path | length == 0
+    - ehagent_binary_url | length == 0
+    - not ehagent_existing_binary.stat.exists
+
+- name: Render agent config before first enrollment
+  ansible.builtin.template:
+    src: config.toml.j2
+    dest: "{{ ehagent_config_path }}"
+    owner: "{{ ehagent_user }}"
+    group: "{{ ehagent_group }}"
+    mode: "0600"
+    force: false
+  no_log: true
+  notify: restart ehagent-web
+
+- name: Ensure existing agent config ownership
+  ansible.builtin.file:
+    path: "{{ ehagent_config_path }}"
+    owner: "{{ ehagent_user }}"
+    group: "{{ ehagent_group }}"
+    mode: "0600"
+  when: ehagent_config_path is exists
+
+- name: Install systemd unit
+  ansible.builtin.template:
+    src: ehagent.service.j2
+    dest: /etc/systemd/system/ehagent-web.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart ehagent-web
+
+- name: Enable and start EHPanel Web Agent
+  ansible.builtin.systemd:
+    name: ehagent-web
+    enabled: true
+    state: started
+    daemon_reload: true

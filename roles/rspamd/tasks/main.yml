@@ -1,0 +1,129 @@
+---
+- name: Install Rspamd repository prerequisites
+  ansible.builtin.dnf:
+    name:
+      - epel-release
+      - curl
+    state: present
+  when: rspamd_repo_enabled
+
+- name: Configure official Rspamd repository
+  ansible.builtin.get_url:
+    url: "{{ rspamd_repo_url }}"
+    dest: /etc/yum.repos.d/rspamd.repo
+    owner: root
+    group: root
+    mode: "0644"
+  when: rspamd_repo_enabled
+
+- name: Install Rspamd packages
+  ansible.builtin.dnf:
+    name: "{{ rspamd_packages }}"
+    state: present
+    update_cache: true
+
+- name: Ensure Rspamd local config directory exists
+  ansible.builtin.file:
+    path: /etc/rspamd/local.d
+    owner: root
+    group: root
+    mode: "0755"
+    state: directory
+
+- name: Configure Rspamd worker proxy
+  ansible.builtin.template:
+    src: worker-proxy.inc.j2
+    dest: /etc/rspamd/local.d/worker-proxy.inc
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart rspamd
+
+- name: Configure Rspamd controller
+  ansible.builtin.template:
+    src: worker-controller.inc.j2
+    dest: /etc/rspamd/local.d/worker-controller.inc
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart rspamd
+
+- name: Configure Rspamd normal worker
+  ansible.builtin.template:
+    src: worker-normal.inc.j2
+    dest: /etc/rspamd/local.d/worker-normal.inc
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart rspamd
+
+- name: Configure Rspamd Redis backend
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: /etc/rspamd/local.d/redis.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart rspamd
+
+- name: Configure Rspamd greylisting policy
+  ansible.builtin.template:
+    src: greylist.conf.j2
+    dest: /etc/rspamd/local.d/greylist.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart rspamd
+
+- name: Validate Rspamd configuration
+  ansible.builtin.command: rspamadm configtest
+  register: rspamd_configtest
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Enable and start Rspamd
+  ansible.builtin.systemd:
+    name: rspamd
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Configure Postfix to use Rspamd milter
+  ansible.builtin.blockinfile:
+    path: /etc/postfix/main.cf
+    marker: "# {mark} EHPanel Rspamd milter"
+    block: |
+      smtpd_milters = inet:{{ rspamd_milter_socket }}
+      non_smtpd_milters = inet:{{ rspamd_milter_socket }}
+      milter_protocol = 6
+      milter_mail_macros = i {mail_addr} {client_addr} {client_name} {auth_authen}
+      milter_default_action = accept
+  notify: reload postfix
+  when: rspamd_enable_postfix_milter
+
+- name: Enable and start Postfix after milter configuration
+  ansible.builtin.systemd:
+    name: postfix
+    enabled: true
+    state: started
+  when:
+    - rspamd_enable_postfix_milter
+    - not ansible_check_mode
+
+- name: Check Rspamd proxy listener
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: 11332
+    timeout: 30
+  when: not ansible_check_mode
+
+- name: Check Rspamd normal worker
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: 11333
+    timeout: 30
+  when: not ansible_check_mode
+
+- name: Show Rspamd status
+  ansible.builtin.debug:
+    msg: "{{ rspamd_configtest.stdout_lines | default(['Rspamd check skipped in check mode']) }}"

@@ -1,0 +1,9 @@
+# Managed by Ansible. Do not edit manually.
+[sshd]
+enabled = true
+port = {{ security_ssh_port }}
+backend = {{ security_fail2ban_backend }}
+maxretry = {{ security_fail2ban_maxretry }}
+findtime = {{ security_fail2ban_findtime }}
+bantime = {{ security_fail2ban_bantime }}
+banaction = {{ security_fail2ban_banaction }}

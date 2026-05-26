@@ -1,0 +1,10 @@
+[Unit]
+Description=Run EHPanel Web local metrics refresh periodically
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec={{ ehpanel_web_panel_metrics_interval }}
+Unit={{ ehpanel_web_panel_metrics_service_name }}.service
+
+[Install]
+WantedBy=timers.target

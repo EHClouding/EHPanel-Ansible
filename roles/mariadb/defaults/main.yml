@@ -1,0 +1,17 @@
+---
+mariadb_version:                 "11.4"
+mariadb_install_strategy:        "native"
+mariadb_packages:
+  - mariadb-server
+  - mariadb
+  - python3-PyMySQL
+mariadb_bind_address:            "127.0.0.1"
+mariadb_root_password:           "{{ vault_mariadb_root_password | default('') }}"
+mariadb_innodb_buffer_pool_size: "512M"
+mariadb_max_connections:         300
+mariadb_slow_query_log:          true
+mariadb_slow_query_time:         2
+mariadb_character_set:           utf8mb4
+mariadb_collation:               utf8mb4_unicode_ci
+mariadb_backup_dir:              /var/backups/mariadb
+mariadb_backup_retention_days:   7

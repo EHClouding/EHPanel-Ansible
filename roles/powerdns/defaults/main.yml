@@ -1,0 +1,21 @@
+---
+# RIESGO R06: Verificar repo de PowerDNS para RHEL 10 antes de usar.
+# https://repo.powerdns.com
+powerdns_version:              "native"
+powerdns_install_method:       native   # native | repo | skip
+powerdns_packages:
+  - pdns
+  - pdns-backend-mysql
+powerdns_backend:              gmysql
+powerdns_db_host:              "127.0.0.1"
+powerdns_db_name:              pdns
+powerdns_db_user:              pdns
+powerdns_db_password:          "{{ lookup('ansible.builtin.password', playbook_dir ~ '/../.generated/powerdns_db_password length=32 chars=ascii_letters,digits') }}"
+powerdns_api_key:              "{{ lookup('ansible.builtin.password', playbook_dir ~ '/../.generated/powerdns_api_key length=48 chars=ascii_letters,digits') }}"
+powerdns_api_port:             8053
+powerdns_webserver_allow_from: "127.0.0.1"
+powerdns_listen_address:       "0.0.0.0"
+powerdns_listen_port:          53
+powerdns_recursion:            false
+powerdns_dnssec:               true
+powerdns_mysql_socket:         /var/lib/mysql/mysql.sock

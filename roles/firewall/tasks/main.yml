@@ -1,0 +1,122 @@
+---
+- name: Install firewalld
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+
+- name: Enable and start firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Read default firewalld zone
+  ansible.builtin.command: firewall-cmd --get-default-zone
+  register: firewall_current_default_zone
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Set default firewalld zone
+  ansible.builtin.command: "firewall-cmd --set-default-zone={{ firewall_zone }}"
+  register: firewall_default_zone
+  changed_when: "'success' in firewall_default_zone.stdout"
+  when:
+    - not ansible_check_mode
+    - firewall_current_default_zone.stdout | trim != firewall_zone
+
+- name: Allow public firewalld services
+  ansible.posix.firewalld:
+    zone: "{{ firewall_zone }}"
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ firewall_allowed_services }}"
+  when: not ansible_check_mode
+
+- name: Disable non-public firewalld services
+  ansible.posix.firewalld:
+    zone: "{{ firewall_zone }}"
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  loop: "{{ firewall_disabled_services }}"
+  when:
+    - not ansible_check_mode
+    - firewall_strict_public_zone | bool
+
+- name: Allow public firewalld ports
+  ansible.posix.firewalld:
+    zone: "{{ firewall_zone }}"
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ firewall_allowed_ports + firewall_additional_ports }}"
+  when: not ansible_check_mode
+
+- name: Ensure private service ports are not public
+  ansible.posix.firewalld:
+    zone: "{{ firewall_zone }}"
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  loop: "{{ firewall_blocked_ports }}"
+  when: not ansible_check_mode
+
+- name: Apply custom rich rules
+  ansible.posix.firewalld:
+    zone: "{{ firewall_zone }}"
+    rich_rule: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ firewall_rich_rules }}"
+  when: not ansible_check_mode
+
+- name: Show active firewalld configuration
+  ansible.builtin.command: "firewall-cmd --zone={{ firewall_zone }} --list-all"
+  register: firewall_zone_config
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Assert allowed services are public
+  ansible.builtin.command: "firewall-cmd --zone={{ firewall_zone }} --query-service={{ item }}"
+  register: firewall_allowed_service_checks
+  changed_when: false
+  failed_when: firewall_allowed_service_checks.rc != 0
+  loop: "{{ firewall_allowed_services }}"
+  when: not ansible_check_mode
+
+- name: Assert disabled services are not public
+  ansible.builtin.command: "firewall-cmd --zone={{ firewall_zone }} --query-service={{ item }}"
+  register: firewall_disabled_service_checks
+  changed_when: false
+  failed_when: firewall_disabled_service_checks.rc == 0
+  loop: "{{ firewall_disabled_services }}"
+  when:
+    - not ansible_check_mode
+    - firewall_strict_public_zone | bool
+
+- name: Assert allowed ports are public
+  ansible.builtin.command: "firewall-cmd --zone={{ firewall_zone }} --query-port={{ item }}"
+  register: firewall_allowed_port_checks
+  changed_when: false
+  failed_when: firewall_allowed_port_checks.rc != 0
+  loop: "{{ firewall_allowed_ports + firewall_additional_ports }}"
+  when: not ansible_check_mode
+
+- name: Assert private ports are not public
+  ansible.builtin.command: "firewall-cmd --zone={{ firewall_zone }} --query-port={{ item }}"
+  register: firewall_blocked_port_checks
+  changed_when: false
+  failed_when: firewall_blocked_port_checks.rc == 0
+  loop: "{{ firewall_blocked_ports }}"
+  when: not ansible_check_mode
+
+- name: Show firewall status
+  ansible.builtin.debug:
+    msg: "{{ firewall_zone_config.stdout_lines | default(['firewalld check skipped in check mode']) }}"

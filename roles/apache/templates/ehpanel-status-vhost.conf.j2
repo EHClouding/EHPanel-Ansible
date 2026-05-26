@@ -1,0 +1,14 @@
+<VirtualHost {{ apache_listen_addr }}:{{ apache_listen_port }}>
+    ServerName 127.0.0.1
+    ServerAlias localhost
+    DocumentRoot /var/www/html
+
+    <Directory /var/www/html>
+        Require all granted
+        AllowOverride None
+        Options -Indexes +FollowSymLinks
+    </Directory>
+
+    ErrorLog /var/log/httpd/ehpanel-status-error.log
+    CustomLog /var/log/httpd/ehpanel-status-access.log combined
+</VirtualHost>

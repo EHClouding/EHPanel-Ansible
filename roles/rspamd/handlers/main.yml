@@ -1,0 +1,9 @@
+---
+- name: restart rspamd
+  ansible.builtin.systemd:
+    name: rspamd
+    state: restarted
+
+- name: reload postfix
+  ansible.builtin.command: postfix reload
+  changed_when: false

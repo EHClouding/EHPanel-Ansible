@@ -1,0 +1,72 @@
+---
+- name: Install disk quota packages
+  ansible.builtin.dnf:
+    name: "{{ disk_quota_packages }}"
+    state: present
+
+- name: Discover quota mount entries from fstab
+  ansible.builtin.command: "findmnt --fstab -no TARGET,SOURCE,FSTYPE,OPTIONS --target {{ item.mount }}"
+  register: disk_quota_mount_entries
+  changed_when: false
+  loop: "{{ disk_quota_filesystems }}"
+
+- name: Assert quota mount entries are supported
+  ansible.builtin.assert:
+    that:
+      - item.stdout.split() | length >= 4
+      - item.stdout.split()[2] in ['ext2', 'ext3', 'ext4', 'xfs']
+    fail_msg: "Unsupported or missing quota filesystem for {{ item.item.mount }}: {{ item.stdout }}"
+    success_msg: "Quota filesystem OK: {{ item.stdout }}"
+  loop: "{{ disk_quota_mount_entries.results }}"
+
+- name: Enable quota mount options in fstab
+  ansible.posix.mount:
+    path: "{{ item.stdout.split()[0] }}"
+    src: "{{ item.stdout.split()[1] }}"
+    fstype: "{{ item.stdout.split()[2] }}"
+    opts: "{{ ((item.stdout.split()[3].split(',') + item.item.options.split(',')) | unique) | join(',') }}"
+    dump: "1"
+    passno: "1"
+    state: mounted
+  loop: "{{ disk_quota_mount_entries.results }}"
+  when: not ansible_check_mode
+
+- name: Remount quota filesystems
+  ansible.builtin.command: "mount -o remount {{ item.stdout.split()[0] }}"
+  changed_when: false
+  loop: "{{ disk_quota_mount_entries.results }}"
+  when: not ansible_check_mode
+
+- name: Initialize ext quota files
+  ansible.builtin.command: "quotacheck -cugm {{ item.stdout.split()[0] }}"
+  register: disk_quota_quotacheck
+  changed_when: "'done' in (disk_quota_quotacheck.stdout | lower) or 'done' in (disk_quota_quotacheck.stderr | lower)"
+  failed_when: false
+  loop: "{{ disk_quota_mount_entries.results }}"
+  when:
+    - not ansible_check_mode
+    - item.stdout.split()[2] in ['ext2', 'ext3', 'ext4']
+
+- name: Enable user and group quotas
+  ansible.builtin.command: "quotaon -ug {{ item.stdout.split()[0] }}"
+  register: disk_quota_quotaon
+  changed_when: false
+  failed_when: false
+  loop: "{{ disk_quota_mount_entries.results }}"
+  when:
+    - not ansible_check_mode
+    - item.stdout.split()[2] in ['ext2', 'ext3', 'ext4']
+
+- name: Validate quota state
+  ansible.builtin.shell: "quotaon -p {{ item.stdout.split()[0] }} || true"
+  register: disk_quota_state
+  changed_when: false
+  failed_when: false
+  loop: "{{ disk_quota_mount_entries.results }}"
+  when: not ansible_check_mode
+
+- name: Show quota state
+  ansible.builtin.debug:
+    msg:
+      quota_state: "{{ disk_quota_state.results | default([]) | map(attribute='stdout_lines') | list }}"
+      warning: "Quota validation is non-blocking; some XFS/root filesystems require reboot or project quota setup before quotas report active."

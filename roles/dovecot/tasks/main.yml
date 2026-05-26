@@ -1,0 +1,136 @@
+---
+- name: Install Dovecot packages
+  ansible.builtin.dnf:
+    name: "{{ dovecot_packages }}"
+    state: present
+
+- name: Ensure virtual mail group exists
+  ansible.builtin.group:
+    name: "{{ dovecot_virtual_group }}"
+    system: true
+    state: present
+
+- name: Ensure virtual mail user exists
+  ansible.builtin.user:
+    name: "{{ dovecot_virtual_user }}"
+    group: "{{ dovecot_virtual_group }}"
+    home: "{{ dovecot_virtual_home }}"
+    shell: /sbin/nologin
+    system: true
+    create_home: false
+    state: present
+
+- name: Ensure virtual mail root exists
+  ansible.builtin.file:
+    path: "{{ dovecot_virtual_home }}"
+    state: directory
+    owner: "{{ dovecot_virtual_user }}"
+    group: "{{ dovecot_virtual_group }}"
+    mode: "0750"
+
+- name: Persist SELinux context for virtual mail root
+  ansible.builtin.command:
+    cmd: "semanage fcontext -a -t {{ dovecot_virtual_home_selinux_type }} '{{ dovecot_virtual_home }}(/.*)?'"
+  register: dovecot_vmail_fcontext_add
+  changed_when: dovecot_vmail_fcontext_add.rc == 0
+  failed_when:
+    - dovecot_vmail_fcontext_add.rc != 0
+    - "'already defined' not in (dovecot_vmail_fcontext_add.stderr | default(''))"
+  when: ansible_selinux.status | default('disabled') == 'enabled'
+
+- name: Update SELinux context for virtual mail root when it already exists
+  ansible.builtin.command:
+    cmd: "semanage fcontext -m -t {{ dovecot_virtual_home_selinux_type }} '{{ dovecot_virtual_home }}(/.*)?'"
+  changed_when: true
+  when:
+    - ansible_selinux.status | default('disabled') == 'enabled'
+    - dovecot_vmail_fcontext_add is defined
+    - dovecot_vmail_fcontext_add.rc is defined
+    - dovecot_vmail_fcontext_add.rc != 0
+    - "'already defined' in (dovecot_vmail_fcontext_add.stderr | default(''))"
+
+- name: Restore SELinux context for virtual mail root
+  ansible.builtin.command:
+    cmd: "restorecon -R {{ dovecot_virtual_home }}"
+  changed_when: false
+  when: ansible_selinux.status | default('disabled') == 'enabled'
+
+- name: Ensure EHPanel Dovecot passwd file exists
+  ansible.builtin.file:
+    path: "{{ dovecot_virtual_auth_file }}"
+    state: touch
+    owner: root
+    group: dovecot
+    mode: "0640"
+    modification_time: preserve
+    access_time: preserve
+
+- name: Ensure Dovecot certificate exists
+  ansible.builtin.stat:
+    path: "{{ dovecot_ssl_cert }}"
+  register: dovecot_ssl_cert_stat
+
+- name: Fail when Dovecot TLS certificate is missing
+  ansible.builtin.fail:
+    msg: "Dovecot TLS certificate {{ dovecot_ssl_cert }} is missing. Run the postfix role first."
+  when:
+    - dovecot_ssl
+    - not ansible_check_mode
+    - not dovecot_ssl_cert_stat.stat.exists
+
+- name: Configure Dovecot EHPanel auth backend
+  ansible.builtin.template:
+    src: auth-ehpanel-passwdfile.conf.ext.j2
+    dest: /etc/dovecot/conf.d/auth-ehpanel-passwdfile.conf.ext
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart dovecot
+
+- name: Disable default system auth backend
+  ansible.builtin.replace:
+    path: /etc/dovecot/conf.d/10-auth.conf
+    regexp: '^\s*!include\s+auth-system\.conf\.ext\s*$'
+    replace: '#!include auth-system.conf.ext'
+  notify: restart dovecot
+
+- name: Enable EHPanel passwd-file auth backend
+  ansible.builtin.lineinfile:
+    path: /etc/dovecot/conf.d/10-auth.conf
+    line: "!include auth-ehpanel-passwdfile.conf.ext"
+    insertafter: '^#!include auth-system\.conf\.ext$'
+    state: present
+  notify: restart dovecot
+
+- name: Configure Dovecot EHPanel settings
+  ansible.builtin.template:
+    src: 99-ehpanel.conf.j2
+    dest: /etc/dovecot/conf.d/99-ehpanel.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart dovecot
+
+- name: Validate Dovecot configuration
+  ansible.builtin.command: doveconf -n
+  register: dovecot_config
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Enable and start Dovecot
+  ansible.builtin.systemd:
+    name: dovecot
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Check Dovecot IMAP listener
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ dovecot_imap_plain_port }}"
+    timeout: 30
+  when: not ansible_check_mode
+
+- name: Show Dovecot status
+  ansible.builtin.debug:
+    msg: "{{ dovecot_config.stdout_lines | default(['Dovecot check skipped in check mode']) }}"

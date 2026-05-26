@@ -1,0 +1,79 @@
+---
+- name: Install Valkey
+  ansible.builtin.dnf:
+    name: "{{ valkey_package }}"
+    state: present
+
+- name: Enable memory overcommit for Valkey
+  ansible.posix.sysctl:
+    name: vm.overcommit_memory
+    value: "{{ valkey_vm_overcommit_memory }}"
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Install Transparent Huge Pages tuning service
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ valkey_thp_service }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=EHPanel Valkey Transparent Huge Pages tuning
+      DefaultDependencies=no
+      Before={{ valkey_service }}.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/sh -c 'test -f /sys/kernel/mm/transparent_hugepage/enabled && echo {{ valkey_transparent_hugepage }} > /sys/kernel/mm/transparent_hugepage/enabled || true'
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+  register: valkey_thp_unit
+
+- name: Enable and apply Transparent Huge Pages tuning
+  ansible.builtin.systemd:
+    name: "{{ valkey_thp_service }}"
+    enabled: true
+    state: started
+    daemon_reload: "{{ valkey_thp_unit.changed }}"
+  when: not ansible_check_mode
+
+- name: Configure Valkey runtime settings
+  ansible.builtin.lineinfile:
+    path: "{{ valkey_config_path }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  loop:
+    - { regexp: '^\s*bind\s+', line: "bind {{ valkey_bind }}" }
+    - { regexp: '^\s*protected-mode\s+', line: "protected-mode {{ valkey_protected_mode }}" }
+    - { regexp: '^\s*port\s+', line: "port {{ valkey_port }}" }
+    - { regexp: '^\s*daemonize\s+', line: "daemonize no" }
+    - { regexp: '^\s*supervised\s+', line: "supervised systemd" }
+    - { regexp: '^\s*maxmemory\s+', line: "maxmemory {{ valkey_maxmemory }}" }
+    - { regexp: '^\s*maxmemory-policy\s+', line: "maxmemory-policy {{ valkey_maxmemory_policy }}" }
+  notify: restart valkey
+
+- name: Run Valkey system compatibility check
+  ansible.builtin.command: valkey-server --check-system
+  changed_when: false
+
+- name: Enable and start Valkey
+  ansible.builtin.systemd:
+    name: "{{ valkey_service }}"
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Validate Valkey ping
+  ansible.builtin.command: valkey-cli -h 127.0.0.1 -p "{{ valkey_port }}" ping
+  register: valkey_ping
+  changed_when: false
+  failed_when: valkey_ping.stdout | trim != "PONG"
+  when: not ansible_check_mode

@@ -1,0 +1,3 @@
+# Managed by Ansible.
+# Shared-hosting customers expect first delivery to arrive immediately.
+enabled = {{ rspamd_enable_greylisting | bool | ternary('true', 'false') }};

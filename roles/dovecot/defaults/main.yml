@@ -1,0 +1,23 @@
+---
+dovecot_packages:
+  - dovecot
+  - policycoreutils-python-utils
+dovecot_protocols:    "imap lmtp"
+dovecot_mail_location: "maildir:~/Maildir"
+dovecot_auth_mechanisms: "plain login"
+dovecot_first_valid_uid: 100
+dovecot_mail_plugins: "$mail_plugins quota"
+dovecot_imap_mail_plugins: "$mail_plugins imap_quota"
+dovecot_quota_backend: "maildir:User quota"
+dovecot_quota_grace: "10%%"
+dovecot_virtual_user: vmail
+dovecot_virtual_group: vmail
+dovecot_virtual_home: /var/vmail
+dovecot_virtual_home_selinux_type: mail_spool_t
+dovecot_virtual_auth_file: /etc/dovecot/ehpanel-users
+dovecot_ssl:          true
+dovecot_ssl_cert:     "/etc/pki/tls/certs/ehpanel-postfix.pem"
+dovecot_ssl_key:      "/etc/pki/tls/private/ehpanel-postfix.key"
+dovecot_imap_plain_port: 143
+dovecot_imap_port:    993
+dovecot_lmtp_socket:  "/var/spool/postfix/private/dovecot-lmtp"

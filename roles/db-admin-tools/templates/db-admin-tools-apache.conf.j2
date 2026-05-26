@@ -1,0 +1,16 @@
+# Managed by Ansible.
+Alias /ehpanel-dbtools "{{ db_admin_tools_web_path }}"
+
+<Directory "{{ db_admin_tools_web_path }}">
+    Options FollowSymLinks
+    AllowOverride None
+    Require all granted
+    DirectoryIndex index.php index.html
+</Directory>
+
+<Directory "{{ phpmyadmin_install_dir }}">
+    Options FollowSymLinks
+    AllowOverride None
+    Require all granted
+    DirectoryIndex index.php
+</Directory>

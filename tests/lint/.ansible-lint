@@ -1,0 +1,25 @@
+# tests/lint/.ansible-lint
+# Configuración de ansible-lint para EHPanel-Ansible.
+# Usar con: ansible-lint playbooks/web-node.yml
+
+profile: production
+
+# Reglas deshabilitadas con justificación
+warn_list:
+  - experimental        # Reglas experimentales como avisos, no errores
+
+skip_list:
+  - yaml[line-length]   # Líneas largas permitidas en comentarios y mensajes
+
+# Excluir archivos que no son playbooks ejecutables
+exclude_paths:
+  - tests/
+  - .git/
+  - roles/*/templates/
+
+# Verificar que todos los módulos usen FQCN (ansible.builtin.xxx)
+# Esto ya está enforced en todos los playbooks y roles.
+use_default_rules: true
+
+# Verificar idempotencia donde sea posible
+loop_var_prefix: "^(item|ehp_).*$"

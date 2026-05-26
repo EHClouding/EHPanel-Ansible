@@ -1,0 +1,12 @@
+---
+valkey_package: valkey
+valkey_service: valkey
+valkey_config_path: /etc/valkey/valkey.conf
+valkey_bind: "127.0.0.1 -::1"
+valkey_port: 6379
+valkey_protected_mode: "yes"
+valkey_maxmemory: "256mb"
+valkey_maxmemory_policy: "allkeys-lru"
+valkey_vm_overcommit_memory: 1
+valkey_transparent_hugepage: madvise
+valkey_thp_service: ehpanel-valkey-thp.service

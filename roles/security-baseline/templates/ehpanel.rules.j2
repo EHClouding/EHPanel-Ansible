@@ -1,0 +1,4 @@
+# Managed by Ansible. Do not edit manually.
+{% for watch in security_audit_watch_paths %}
+-w {{ watch.path }} -p {{ watch.perms }} -k {{ watch.key }}
+{% endfor %}

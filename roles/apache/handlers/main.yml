@@ -1,0 +1,12 @@
+---
+- name: reload httpd
+  ansible.builtin.systemd:
+    name: httpd
+    state: reloaded
+  when: not ansible_check_mode
+
+- name: restart httpd
+  ansible.builtin.systemd:
+    name: httpd
+    state: restarted
+  when: not ansible_check_mode

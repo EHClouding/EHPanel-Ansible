@@ -1,0 +1,10 @@
+---
+- name: restart mariadb
+  ansible.builtin.systemd:
+    name: mariadb
+    state: restarted
+
+- name: reload mariadb
+  ansible.builtin.systemd:
+    name: mariadb
+    state: reloaded

@@ -1,0 +1,27 @@
+---
+# inventories/staging/group_vars/all.yml
+# Overrides universales para staging.
+
+inventory_environment: staging
+ehpanel_domain_suffix: ".staging.ehclouding.com"
+
+# Staging usa Let's Encrypt staging CA para evitar rate limits
+certbot_staging: true
+
+# Agente apunta al panel de staging
+ehagent_panel_url: "wss://server0-staging.ehclouding.com/ws/agent"
+
+# Recursos reducidos para staging
+mariadb_innodb_buffer_pool_size: "256M"
+valkey_maxmemory: "256mb"
+php_memory_limit: "128M"
+cgroups_default_memory_max: "256M"
+
+# Timezone para staging
+common_timezone: "America/La_Paz"
+
+# Staging still uses temporary root/password SSH while VPS tests are active.
+# Production keeps the role defaults: root login disabled and key-only SSH.
+security_ssh_permit_root_login: "yes"
+security_ssh_password_auth: "yes"
+security_selinux_state: permissive

@@ -1,0 +1,21 @@
+---
+hosting_runtime_base_dirs:
+  - /etc/ehpanel/software
+  - /var/log/ehpanel/hosting
+  - /var/lib/ehpanel
+
+hosting_runtime_selinux_enabled: true
+hosting_runtime_php_runtime_users:
+  - nobody
+  - apache
+
+hosting_runtime_wordpress_fcontexts:
+  - '/home/[^/]+/public_html/wp-content(/.*)?'
+  - '/home/[^/]+/public_html/wp-config\.php'
+  - '/home/[^/]+/public_html/\.htaccess'
+
+hosting_runtime_content_fcontexts:
+  - '/home/[^/]+/public_html(/.*)?'
+
+hosting_runtime_log_fcontexts:
+  - '/var/log/ehpanel(/.*)?'

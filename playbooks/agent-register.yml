@@ -1,0 +1,15 @@
+---
+# playbooks/agent-register.yml — Re-ejecuta sólo el rol ehagent.
+# Útil para re-enrollment sin tocar el resto del stack.
+#
+# Uso:
+#   ansible-playbook -i inventories/staging/hosts.yml playbooks/agent-register.yml --ask-vault-pass
+
+- name: Registrar / re-registrar EHPanel Web Agent
+  hosts: web_nodes
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: ehagent
+      tags: [ehagent, agent, enrollment]

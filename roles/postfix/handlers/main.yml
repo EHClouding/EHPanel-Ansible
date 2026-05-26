@@ -1,0 +1,9 @@
+---
+- name: reload postfix
+  ansible.builtin.command: postfix reload
+  changed_when: false
+
+- name: restart postfix
+  ansible.builtin.systemd:
+    name: postfix
+    state: restarted

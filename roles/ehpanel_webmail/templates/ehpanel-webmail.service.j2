@@ -1,0 +1,24 @@
+[Unit]
+Description=EHPanel Webmail ASGI
+After=network.target
+
+[Service]
+Type=simple
+User={{ ehpanel_webmail_user }}
+Group={{ ehpanel_webmail_group }}
+WorkingDirectory={{ ehpanel_webmail_root }}/backend
+EnvironmentFile={{ ehpanel_webmail_env_file }}
+ExecStart={{ ehpanel_webmail_venv }}/bin/daphne -b {{ ehpanel_webmail_bind }} -p {{ ehpanel_webmail_port }} ehpanel_webmail.asgi:application
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ ehpanel_webmail_root }}/backend
+ReadWritePaths=/var/lib/ehpanel-webmail
+ReadWritePaths=/var/log/ehpanel-webmail
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

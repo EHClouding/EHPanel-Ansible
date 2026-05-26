@@ -1,0 +1,78 @@
+---
+- name: Install Apache httpd
+  ansible.builtin.dnf:
+    name:
+      - httpd
+      - mod_ssl
+    state: present
+
+- name: Configure Apache listen port
+  ansible.builtin.template:
+    src: ehpanel-listen.conf.j2
+    dest: "{{ apache_vhosts_dir }}/00-ehpanel-listen.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart httpd
+
+- name: Disable default Apache port 80 listener
+  ansible.builtin.replace:
+    path: /etc/httpd/conf/httpd.conf
+    regexp: '^Listen\s+80$'
+    replace: '# Listen 80 disabled by EHPanel; see conf.d/00-ehpanel-listen.conf'
+  notify: restart httpd
+
+- name: Configure Apache internal status vhost
+  ansible.builtin.template:
+    src: ehpanel-status-vhost.conf.j2
+    dest: "{{ apache_vhosts_dir }}/00-ehpanel-status-vhost.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart httpd
+
+- name: Check default Apache SSL vhost
+  ansible.builtin.stat:
+    path: /etc/httpd/conf.d/ssl.conf
+  register: apache_default_ssl_conf
+
+- name: Disable default Apache SSL vhost
+  ansible.builtin.command: mv /etc/httpd/conf.d/ssl.conf /etc/httpd/conf.d/ssl.conf.disabled
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - apache_default_ssl_conf.stat.exists
+  notify: restart httpd
+
+- name: Ensure Apache SSL vhost stays disabled
+  ansible.builtin.file:
+    path: /etc/httpd/conf.d/ssl.conf
+    state: absent
+  when: not ansible_check_mode
+
+- name: Configure Apache server hardening
+  ansible.builtin.template:
+    src: ehpanel-hardening.conf.j2
+    dest: "{{ apache_vhosts_dir }}/01-ehpanel-hardening.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart httpd
+
+- name: Deploy Apache node status page
+  ansible.builtin.copy:
+    dest: /var/www/html/ehpanel-apache-status.html
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      <!doctype html>
+      <html><head><meta charset="utf-8"><title>EHPanel Apache</title></head>
+      <body><h1>EHPanel Apache backend active on {{ inventory_hostname }}</h1></body></html>
+
+- name: Enable and start Apache httpd
+  ansible.builtin.systemd:
+    name: httpd
+    enabled: true
+    state: started
+  when: not ansible_check_mode

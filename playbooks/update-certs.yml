@@ -1,0 +1,17 @@
+---
+# playbooks/update-certs.yml — Emite o renueva certificados TLS sin tocar el stack.
+#
+# Nota: Certbot necesita que Nginx esté corriendo para el webroot challenge.
+# Si se usa standalone, Nginx debe estar parado (configurable en defaults).
+#
+# Uso:
+#   ansible-playbook -i inventories/staging/hosts.yml playbooks/update-certs.yml --ask-vault-pass
+
+- name: Gestionar certificados TLS con Certbot
+  hosts: web_nodes
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: certbot
+      tags: [certbot, ssl, tls]

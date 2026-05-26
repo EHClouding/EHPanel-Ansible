@@ -1,0 +1,23 @@
+---
+# playbooks/update-php.yml — Añade/elimina versiones PHP sin tocar el resto.
+#
+# Uso:
+#   ansible-playbook -i inventories/staging/hosts.yml playbooks/update-php.yml --ask-vault-pass
+#   # Para agregar PHP 8.4:
+#   ansible-playbook ... -e '{"php_versions": ["8.1","8.2","8.3","8.4"]}' --ask-vault-pass
+
+- name: Actualizar versiones PHP en nodo web
+  hosts: web_nodes
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Verificar AlmaLinux 10
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "AlmaLinux"
+          - ansible_distribution_major_version == "10"
+
+  roles:
+    - role: php
+      tags: [php]

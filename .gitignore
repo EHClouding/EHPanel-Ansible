@@ -1,0 +1,49 @@
+# Ansible retry files
+*.retry
+
+# Fact cache
+/tmp/ansible-facts/
+
+# Local vault password files (NEVER commit)
+.vault_pass
+.vault_pass.txt
+vault_pass*
+
+# Unencrypted vault content (NEVER commit)
+# vault.yml files in inventories should always be encrypted:
+# ansible-vault encrypt inventories/*/host_vars/*/vault.yml
+inventories/**/vault.yml
+!inventories/**/vault.example.yml
+
+# SSH keys
+*.pem
+*.key
+*.p12
+id_rsa
+id_ed25519
+
+# Environment secrets
+.env
+*.env.local
+.generated/
+*.sqlite3
+*.sqlite3-*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Log files from Ansible
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+.tox/
+
+# Molecule
+.molecule/

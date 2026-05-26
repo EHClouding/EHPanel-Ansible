@@ -1,0 +1,14 @@
+---
+# roles/common/tasks/hostname.yml
+
+- name: Set system hostname
+  ansible.builtin.hostname:
+    name: "{{ common_hostname }}"
+    use: systemd
+
+- name: Ensure /etc/hosts has the correct entry
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "^127\\.0\\.1\\.1"
+    line: "127.0.1.1  {{ common_hostname }}"
+    state: present

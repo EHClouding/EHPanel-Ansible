@@ -1,0 +1,26 @@
+---
+# roles/common/tasks/ntp.yml
+# chrony es el cliente NTP por defecto en RHEL/AlmaLinux 10.
+# Un reloj sincronizado es obligatorio para la verificación HMAC del agente.
+
+- name: Install chrony
+  ansible.builtin.dnf:
+    name: chrony
+    state: present
+
+- name: Configure chrony NTP servers
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: restart chronyd
+
+- name: Enable and start chronyd
+  ansible.builtin.systemd:
+    name: chronyd
+    state: started
+    enabled: true
+    daemon_reload: true

@@ -1,0 +1,5 @@
+# Managed by Ansible.
+servers = "{{ rspamd_redis_host }}:{{ rspamd_redis_port }}";
+{% if rspamd_redis_password | length > 0 %}
+password = "{{ rspamd_redis_password }}";
+{% endif %}

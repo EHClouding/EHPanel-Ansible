@@ -1,0 +1,78 @@
+---
+- name: Verify cgroups v2 filesystem
+  ansible.builtin.command: stat -fc %T /sys/fs/cgroup
+  register: cgroups_fs_type
+  changed_when: false
+
+- name: Assert cgroups v2 is active
+  ansible.builtin.assert:
+    that:
+      - cgroups_fs_type.stdout | trim == "cgroup2fs"
+    fail_msg: "cgroups v2 is not active. Detected {{ cgroups_fs_type.stdout | trim }}."
+    success_msg: "cgroups v2 OK"
+
+- name: Read available cgroup controllers
+  ansible.builtin.command: cat /sys/fs/cgroup/cgroup.controllers
+  register: cgroups_available_controllers
+  changed_when: false
+
+- name: Assert required cgroup controllers are available
+  ansible.builtin.assert:
+    that:
+      - item in cgroups_available_controllers.stdout.split()
+    fail_msg: "Missing cgroup controller: {{ item }}"
+    success_msg: "cgroup controller OK: {{ item }}"
+  loop: "{{ cgroups_required_controllers }}"
+
+- name: Install EHPanel web slice unit
+  ansible.builtin.template:
+    src: ehpanel-web.slice.j2
+    dest: "/etc/systemd/system/{{ cgroups_web_slice_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: Install EHPanel tenants slice unit
+  ansible.builtin.template:
+    src: ehpanel-tenants.slice.j2
+    dest: "/etc/systemd/system/{{ cgroups_tenant_slice_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: Flush systemd reload before slice validation
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable EHPanel web slice
+  ansible.builtin.systemd:
+    name: "{{ cgroups_web_slice_name }}"
+    state: started
+    daemon_reload: true
+  when: not ansible_check_mode
+
+- name: Enable EHPanel tenants slice
+  ansible.builtin.systemd:
+    name: "{{ cgroups_tenant_slice_name }}"
+    state: started
+    daemon_reload: true
+  when: not ansible_check_mode
+
+- name: Validate EHPanel web slice properties
+  ansible.builtin.command: "systemctl show {{ cgroups_web_slice_name }} --property=CPUAccounting,MemoryAccounting,IOAccounting,TasksAccounting,CPUQuotaPerSecUSec,MemoryMax,TasksMax"
+  register: cgroups_web_slice_status
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Validate EHPanel tenants slice properties
+  ansible.builtin.command: "systemctl show {{ cgroups_tenant_slice_name }} --property=CPUAccounting,MemoryAccounting,IOAccounting,TasksAccounting,CPUQuotaPerSecUSec,MemoryMax,TasksMax"
+  register: cgroups_tenant_slice_status
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Show EHPanel web slice properties
+  ansible.builtin.debug:
+    msg:
+      - "{{ cgroups_web_slice_status.stdout_lines | default(['web slice validation skipped in check mode']) }}"
+      - "{{ cgroups_tenant_slice_status.stdout_lines | default(['tenant slice validation skipped in check mode']) }}"

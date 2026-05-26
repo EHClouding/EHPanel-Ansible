@@ -1,0 +1,26 @@
+---
+# inventories/production/group_vars/all.yml
+
+inventory_environment: production
+ehpanel_domain_suffix: ".ehclouding.com"
+
+# Producción usa certificados reales de Let's Encrypt
+certbot_staging: false
+
+# Agente apunta al panel de producción
+ehagent_panel_url: "wss://web.ehclouding.com/ws/agent/"
+
+# Recursos de producción
+mariadb_innodb_buffer_pool_size: "2G"
+valkey_maxmemory: "2gb"
+php_memory_limit: "256M"
+cgroups_default_memory_max: "512M"
+
+# Producción: Apache sólo localhost
+apache_listen_addr: "127.0.0.1"
+apache_listen_port: 8080
+
+# Sin puertos debug
+firewall_additional_ports: []
+
+common_timezone: "America/La_Paz"

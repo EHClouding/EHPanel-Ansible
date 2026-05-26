@@ -1,0 +1,4 @@
+# /etc/sysctl.d/90-ehpanel.conf — Managed by Ansible. Do not edit manually.
+{% for key, value in common_sysctl.items() %}
+{{ key }} = {{ value }}
+{% endfor %}

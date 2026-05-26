@@ -1,0 +1,27 @@
+---
+# Ansible Galaxy collection requirements.
+# Install with: ansible-galaxy collection install -r requirements.yml
+#
+# Version pins are intentional — AlmaLinux 10 compatibility was validated
+# against these specific versions. Bump only after testing.
+
+collections:
+  # Core POSIX modules: firewalld, sysctl, selinux, seboolean, sefcontext
+  - name: ansible.posix
+    version: ">=1.5.0"
+
+  # General utilities: timezone, pam_limits, etc.
+  - name: community.general
+    version: ">=9.0.0"
+
+  # MySQL/MariaDB modules: mysql_user, mysql_db, mysql_query
+  - name: community.mysql
+    version: ">=3.9.0"
+
+  # PostgreSQL modules: postgresql_user, postgresql_db, etc.
+  - name: community.postgresql
+    version: ">=3.4.0"
+
+  # Crypto modules: openssl_privatekey, openssl_certificate (for certbot validation)
+  - name: community.crypto
+    version: ">=2.18.0"

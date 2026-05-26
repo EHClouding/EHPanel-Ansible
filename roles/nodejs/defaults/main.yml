@@ -1,0 +1,15 @@
+---
+nodejs_install: true
+nodejs_major_version: "22"
+nodejs_packages:
+  - nodejs
+  - nodejs-npm
+nodejs_install_build_tools: true
+nodejs_install_pnpm: true
+nodejs_pnpm_version: "10.26.0"
+nodejs_build_packages:
+  - gcc
+  - gcc-c++
+  - make
+  - python3
+  - openssl-devel

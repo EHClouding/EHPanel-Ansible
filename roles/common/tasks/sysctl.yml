@@ -1,0 +1,11 @@
+---
+# roles/common/tasks/sysctl.yml
+
+- name: Apply sysctl settings
+  ansible.posix.sysctl:
+    name:        "{{ item.key }}"
+    value:       "{{ item.value | string }}"
+    state:       present
+    sysctl_file: /etc/sysctl.d/90-ehpanel.conf
+    reload:      true
+  loop: "{{ common_sysctl | dict2items }}"

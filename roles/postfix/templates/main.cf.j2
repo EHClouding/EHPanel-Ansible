@@ -1,0 +1,52 @@
+# Managed by Ansible.
+compatibility_level = 3.6
+
+myhostname = {{ postfix_hostname }}
+mydomain = {{ postfix_domain }}
+myorigin = $mydomain
+
+inet_interfaces = {{ postfix_inet_interfaces }}
+inet_protocols = {{ postfix_inet_protocols }}
+
+mydestination = $myhostname, localhost.$mydomain, localhost
+mynetworks = {{ postfix_mynetworks }}
+relayhost = {{ postfix_relay_host }}
+
+home_mailbox = Maildir/
+mailbox_size_limit = 0
+message_size_limit = {{ postfix_max_message_size }}
+recipient_delimiter = +
+alias_maps =
+alias_database =
+
+virtual_mailbox_domains = texthash:{{ postfix_virtual_domains_file }}
+virtual_mailbox_maps = texthash:{{ postfix_virtual_mailboxes_file }}
+virtual_mailbox_base = {{ postfix_virtual_home }}
+virtual_uid_maps = static:{{ postfix_virtual_uid_effective | default('1000') }}
+virtual_gid_maps = static:{{ postfix_virtual_gid_effective | default('1000') }}
+virtual_minimum_uid = 100
+virtual_mailbox_limit = 0
+
+smtpd_banner = $myhostname ESMTP
+biff = no
+append_dot_mydomain = no
+readme_directory = no
+
+smtpd_relay_restrictions = {{ postfix_smtpd_relay_restrictions }}
+smtpd_recipient_restrictions = {{ postfix_smtpd_recipient_restrictions }}
+
+{% if postfix_smtpd_tls %}
+smtpd_tls_security_level = may
+smtpd_tls_cert_file = {{ postfix_tls_cert }}
+smtpd_tls_key_file = {{ postfix_tls_key }}
+smtpd_tls_loglevel = 1
+{% else %}
+smtpd_tls_security_level = none
+{% endif %}
+
+{% if postfix_smtp_tls %}
+smtp_tls_security_level = may
+smtp_tls_loglevel = 1
+{% else %}
+smtp_tls_security_level = none
+{% endif %}

@@ -1,0 +1,13 @@
+# /etc/chrony.conf — Managed by Ansible. Do not edit manually.
+{% for server in common_ntp_servers %}
+server {{ server }} iburst
+{% endfor %}
+
+driftfile /var/lib/chrony/drift
+makestep 1.0 3
+rtcsync
+
+# Allow NTP client access from localhost only
+allow 127.0.0.1
+
+logdir /var/log/chrony

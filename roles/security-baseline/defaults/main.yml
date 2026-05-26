@@ -1,0 +1,47 @@
+---
+security_ssh_port:               22
+security_ssh_permit_root_login:  "prohibit-password"
+security_ssh_password_auth:      "no"
+security_ssh_max_auth_tries:     3
+security_ssh_login_grace_time:   "30s"
+security_ssh_client_alive_interval: 300
+security_ssh_client_alive_count_max: 2
+security_selinux_state:          enforcing
+security_selinux_policy:         targeted
+security_fail2ban_maxretry:      5
+security_fail2ban_bantime:       3600
+security_fail2ban_findtime:      600
+security_fail2ban_backend:       systemd
+security_fail2ban_banaction:     firewallcmd-rich-rules
+security_packages:
+  - openssh-server
+  - fail2ban
+  - fail2ban-firewalld
+  - audit
+  - audit-libs
+  - policycoreutils-python-utils
+security_packages_remove:
+  - telnet
+  - rsh
+  - rsh-server
+  - ypbind
+  - ypserv
+security_audit_watch_paths:
+  - path: /etc/ehpanel
+    perms: wa
+    key: ehpanel_config
+  - path: /opt/ehpanel
+    perms: wa
+    key: ehpanel_app
+  - path: /etc/ssh/sshd_config
+    perms: wa
+    key: ssh_config
+  - path: /etc/ssh/sshd_config.d
+    perms: wa
+    key: ssh_config
+  - path: /etc/sudoers
+    perms: wa
+    key: sudoers
+  - path: /etc/sudoers.d
+    perms: wa
+    key: sudoers

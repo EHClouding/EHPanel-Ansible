@@ -1,0 +1,91 @@
+---
+- name: Warn about PHP versions not confirmed on AlmaLinux 10
+  ansible.builtin.debug:
+    msg: >
+      WARN: PHP '{{ item }}' is not confirmed on AlmaLinux 10.
+      Keep it out of staging until Remi/RHEL10 availability is verified.
+  loop: "{{ php_versions | intersect(php_versions_unsupported_on_al10) }}"
+  when: php_versions_unsupported_on_al10 is defined
+
+- name: Install native PHP-FPM packages
+  ansible.builtin.dnf:
+    name: "{{ php_native_packages }}"
+    state: present
+  when: php_install_strategy == "native"
+
+- name: Install Composer binary
+  ansible.builtin.get_url:
+    url: "{{ composer_download_url }}"
+    dest: "{{ composer_bin_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+    checksum: "{{ (composer_download_checksum | length > 0) | ternary(composer_download_checksum, omit) }}"
+  when: php_install_composer | bool
+
+- name: Verify Composer installation
+  ansible.builtin.command: "{{ composer_bin_path }} --version"
+  register: composer_version_check
+  changed_when: false
+  when: php_install_composer | bool
+
+- name: Show Composer version
+  ansible.builtin.debug:
+    msg: "{{ composer_version_check.stdout }}"
+  when:
+    - php_install_composer | bool
+    - composer_version_check.stdout is defined
+
+- name: Configure PHP runtime limits
+  ansible.builtin.ini_file:
+    path: /etc/php.ini
+    section: PHP
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    mode: "0644"
+  loop:
+    - { option: "memory_limit", value: "{{ php_memory_limit }}" }
+    - { option: "upload_max_filesize", value: "{{ php_upload_max_filesize }}" }
+    - { option: "post_max_size", value: "{{ php_post_max_size }}" }
+    - { option: "max_execution_time", value: "{{ php_max_execution_time }}" }
+  notify:
+    - restart php-fpm
+    - restart httpd
+
+- name: Configure Apache PHP-FPM bridge
+  ansible.builtin.copy:
+    dest: /etc/httpd/conf.d/20-ehpanel-php-fpm.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible.
+      <FilesMatch \.php$>
+          SetHandler "proxy:unix:/run/php-fpm/www.sock|fcgi://localhost/"
+      </FilesMatch>
+
+      DirectoryIndex index.php index.html
+  notify:
+    - restart php-fpm
+    - restart httpd
+
+- name: Deploy PHP status probe
+  ansible.builtin.copy:
+    dest: /var/www/html/ehpanel-php-status.php
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      <?php
+      header('Content-Type: text/plain');
+      echo "EHPanel PHP-FPM active\n";
+      echo "PHP_VERSION=" . PHP_VERSION . "\n";
+      echo "SAPI=" . PHP_SAPI . "\n";
+      echo "HOSTNAME=" . gethostname() . "\n";
+
+- name: Enable and start PHP-FPM
+  ansible.builtin.systemd:
+    name: php-fpm
+    enabled: true
+    state: started
+  when: not ansible_check_mode

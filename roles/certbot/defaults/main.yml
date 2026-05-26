@@ -1,0 +1,14 @@
+---
+# RIESGO R05: certbot en AlmaLinux 10 con Python 3.12 puede requerir snap o venv.
+certbot_email:             "{{ vault_certbot_email | default('') }}"
+certbot_method:            webroot
+certbot_webroot_path:      /var/www/html
+certbot_domains:           []
+certbot_staging:           true   # Sobreescrito a false en inventories/production/
+certbot_packages:
+  - certbot
+certbot_pre_hook:          ""
+certbot_post_hook:         ""
+certbot_deploy_hook:       "/opt/ehpanel/certbot-deploy.sh"
+certbot_renew_timer_calendar: "*-*-* 03:00:00"
+certbot_install_method:    dnf   # dnf | snap

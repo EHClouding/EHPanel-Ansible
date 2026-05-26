@@ -1,0 +1,120 @@
+---
+- name: Install Postfix packages
+  ansible.builtin.dnf:
+    name: "{{ postfix_packages }}"
+    state: present
+
+- name: Ensure virtual mail group exists
+  ansible.builtin.group:
+    name: "{{ postfix_virtual_group }}"
+    system: true
+    state: present
+
+- name: Ensure virtual mail user exists
+  ansible.builtin.user:
+    name: "{{ postfix_virtual_user }}"
+    group: "{{ postfix_virtual_group }}"
+    home: "{{ postfix_virtual_home }}"
+    shell: /sbin/nologin
+    system: true
+    create_home: false
+    state: present
+
+- name: Read virtual mail uid
+  ansible.builtin.command: "id -u {{ postfix_virtual_user }}"
+  register: postfix_virtual_uid_result
+  changed_when: false
+
+- name: Read virtual mail gid
+  ansible.builtin.command: "getent group {{ postfix_virtual_group }}"
+  register: postfix_virtual_gid_result
+  changed_when: false
+
+- name: Set virtual mail uid/gid facts
+  ansible.builtin.set_fact:
+    postfix_virtual_uid_effective: "{{ postfix_virtual_uid_result.stdout | trim }}"
+    postfix_virtual_gid_effective: "{{ (postfix_virtual_gid_result.stdout | trim).split(':')[2] }}"
+
+- name: Ensure Postfix EHPanel virtual map files exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: touch
+    owner: root
+    group: root
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+  loop:
+    - "{{ postfix_virtual_domains_file }}"
+    - "{{ postfix_virtual_mailboxes_file }}"
+
+- name: Ensure Postfix TLS private directory exists
+  ansible.builtin.file:
+    path: /etc/pki/tls/private
+    owner: root
+    group: root
+    mode: "0700"
+    state: directory
+
+- name: Check Postfix temporary TLS certificate
+  ansible.builtin.stat:
+    path: "{{ postfix_tls_cert }}"
+  register: postfix_tls_cert_stat
+
+- name: Generate temporary self-signed Postfix TLS certificate
+  ansible.builtin.command: >
+    openssl req -x509 -nodes -newkey rsa:2048 -days 365
+    -keyout {{ postfix_tls_key }}
+    -out {{ postfix_tls_cert }}
+    -subj /CN={{ postfix_hostname }}
+  when:
+    - not ansible_check_mode
+    - not postfix_tls_cert_stat.stat.exists
+  changed_when: true
+  notify: restart postfix
+
+- name: Protect Postfix TLS private key
+  ansible.builtin.file:
+    path: "{{ postfix_tls_key }}"
+    owner: root
+    group: root
+    mode: "0600"
+  when: not ansible_check_mode
+
+- name: Configure Postfix main.cf
+  ansible.builtin.template:
+    src: main.cf.j2
+    dest: /etc/postfix/main.cf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart postfix
+
+- name: Validate Postfix configuration
+  ansible.builtin.command: postfix check
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Enable and start Postfix
+  ansible.builtin.systemd:
+    name: postfix
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Check Postfix SMTP listener
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: 25
+    timeout: 30
+  when: not ansible_check_mode
+
+- name: Show Postfix non-default configuration
+  ansible.builtin.command: postconf -n
+  register: postfix_postconf
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Show Postfix status
+  ansible.builtin.debug:
+    msg: "{{ postfix_postconf.stdout_lines | default(['Postfix check skipped in check mode']) }}"

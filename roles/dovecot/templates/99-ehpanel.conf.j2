@@ -1,0 +1,64 @@
+# Managed by Ansible.
+protocols = {{ dovecot_protocols }}
+mail_location = {{ dovecot_mail_location }}
+first_valid_uid = {{ dovecot_first_valid_uid }}
+mail_plugins = {{ dovecot_mail_plugins }}
+
+auth_mechanisms = {{ dovecot_auth_mechanisms }}
+disable_plaintext_auth = yes
+
+{% if dovecot_ssl %}
+ssl = required
+ssl_cert = <{{ dovecot_ssl_cert }}
+ssl_key = <{{ dovecot_ssl_key }}
+{% else %}
+ssl = no
+{% endif %}
+
+service imap-login {
+  inet_listener imap {
+    port = {{ dovecot_imap_plain_port }}
+  }
+
+  inet_listener imaps {
+    port = {{ dovecot_imap_port }}
+    ssl = yes
+  }
+}
+
+service lmtp {
+  unix_listener {{ dovecot_lmtp_socket }} {
+    mode = 0600
+    user = postfix
+    group = postfix
+  }
+}
+
+protocol imap {
+  mail_plugins = {{ dovecot_imap_mail_plugins }}
+}
+
+plugin {
+  quota = {{ dovecot_quota_backend }}
+  quota_grace = {{ dovecot_quota_grace }}
+}
+
+namespace inbox {
+  inbox = yes
+
+  mailbox Drafts {
+    special_use = \Drafts
+  }
+
+  mailbox Junk {
+    special_use = \Junk
+  }
+
+  mailbox Sent {
+    special_use = \Sent
+  }
+
+  mailbox Trash {
+    special_use = \Trash
+  }
+}

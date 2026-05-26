@@ -1,0 +1,35 @@
+---
+# group_vars/all.yml — Universal defaults shared across ALL inventories.
+# Override in inventories/<env>/group_vars/all.yml for environment-specific values.
+# NO secrets here — this file is committed to version control in plaintext.
+
+# ── Identity ──────────────────────────────────────────────────────────────────
+ehpanel_org: "ElitteHosting"
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+ehpanel_base_dir:   /opt/ehpanel
+ehpanel_log_dir:    /var/log/ehpanel
+ehpanel_config_dir: /etc/ehpanel
+
+# ── Default software versions ─────────────────────────────────────────────────
+php_default_version: "8.3"
+mariadb_version:     "11.4"
+postgresql_version:  "16"
+nginx_version:       "stable"
+
+# ── NTP ───────────────────────────────────────────────────────────────────────
+common_ntp_servers:
+  - 0.pool.ntp.org
+  - 1.pool.ntp.org
+
+# ── SELinux ───────────────────────────────────────────────────────────────────
+security_selinux_state: enforcing
+
+# ── Certbot: staging=true by default to avoid rate limits.
+#    Production inventory overrides this to false.
+certbot_staging: true
+
+# Phase 1: EHPanel Web runs locally on each web node.
+ehpanel_web_panel_enabled: true
+ehpanel_webmail_enabled: true
+ehagent_enabled: false

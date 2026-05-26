@@ -1,0 +1,4 @@
+# /etc/security/limits.d/90-ehpanel.conf — Managed by Ansible. Do not edit manually.
+{% for limit in common_limits %}
+{{ limit.domain }} {{ limit.type }} {{ limit.item }} {{ limit.value }}
+{% endfor %}

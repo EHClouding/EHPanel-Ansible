@@ -1,0 +1,11 @@
+---
+# roles/common/tasks/dirs.yml
+
+- name: Create EHPanel base directories
+  ansible.builtin.file:
+    path:  "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode:  "{{ item.mode }}"
+  loop: "{{ common_dirs }}"

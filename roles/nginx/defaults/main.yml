@@ -1,0 +1,14 @@
+---
+nginx_version:                stable
+nginx_worker_processes:       auto
+nginx_worker_connections:     4096
+nginx_keepalive_timeout:      65
+nginx_client_max_body_size:   "256m"
+nginx_ssl_protocols:          "TLSv1.2 TLSv1.3"
+nginx_ssl_ciphers:            "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+nginx_ssl_session_cache:      "shared:SSL:10m"
+nginx_ssl_session_timeout:    "1d"
+nginx_log_format:             combined
+nginx_user:                   nginx
+nginx_pid:                    /run/nginx.pid
+nginx_vhosts_dir:             /etc/nginx/conf.d

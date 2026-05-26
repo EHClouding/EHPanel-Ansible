@@ -1,0 +1,6 @@
+---
+# Copy to vault.yml, fill real values, then encrypt with ansible-vault.
+
+vault_mariadb_root_password: "CHANGEME"
+vault_postgresql_admin_password: "CHANGEME"
+vault_valkey_password: "CHANGEME"

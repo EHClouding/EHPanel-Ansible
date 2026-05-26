@@ -1,0 +1,17 @@
+---
+# roles/common/tasks/packages.yml
+
+- name: Install EPEL release
+  ansible.builtin.dnf:
+    name: epel-release
+    state: present
+
+- name: Enable CRB (CodeReady Builder) — required by EPEL on RHEL 10
+  ansible.builtin.command: dnf config-manager --set-enabled crb
+  changed_when: false
+  failed_when: false
+
+- name: Install base packages
+  ansible.builtin.dnf:
+    name: "{{ common_packages }}"
+    state: present

@@ -1,0 +1,13 @@
+---
+# cgroups v2 está habilitado por defecto en AlmaLinux 10 — sólo crear slices.
+cgroups_default_cpu_quota:      "200%"
+cgroups_default_memory_max:     "512M"
+cgroups_default_tasks_max:      512
+cgroups_tenant_slice_name:      "ehpanel-tenants.slice"
+cgroups_web_slice_name:         "ehpanel-web.slice"
+cgroups_required_controllers:
+  - cpu
+  - io
+  - memory
+  - pids
+cgroups_enable_accounting: true

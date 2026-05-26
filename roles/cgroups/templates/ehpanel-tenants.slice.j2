@@ -1,0 +1,14 @@
+[Unit]
+Description=EHPanel managed tenant services slice
+Documentation=https://github.com/ElitteHosting/EHPanel-Ansible
+
+[Slice]
+{% if cgroups_enable_accounting %}
+CPUAccounting=yes
+MemoryAccounting=yes
+IOAccounting=yes
+TasksAccounting=yes
+{% endif %}
+CPUQuota={{ cgroups_default_cpu_quota }}
+MemoryMax={{ cgroups_default_memory_max }}
+TasksMax={{ cgroups_default_tasks_max }}

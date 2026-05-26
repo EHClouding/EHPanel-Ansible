@@ -1,0 +1,208 @@
+---
+- name: Ensure EHPanel Web packages
+  ansible.builtin.dnf:
+    name:
+      - python3
+      - python3-pip
+      - python3-virtualenv
+      - gcc
+      - python3-devel
+      - acl
+      - curl
+      - procps-ng
+      - git
+      - tar
+      - unzip
+      - nodejs
+      - npm
+    state: present
+
+- name: Ensure EHPanel Web directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ ehpanel_web_panel_root }}", owner: "{{ ehpanel_web_panel_user }}", group: "{{ ehpanel_web_panel_group }}", mode: "0750" }
+    - { path: "/etc/ehpanel", owner: root, group: "{{ ehpanel_web_panel_group }}", mode: "0711" }
+    - { path: "/var/log/ehpanel", owner: "{{ ehpanel_web_panel_user }}", group: "{{ ehpanel_web_panel_group }}", mode: "0750" }
+    - { path: "/etc/letsencrypt", owner: root, group: root, mode: "0755" }
+    - { path: "/var/vmail", owner: root, group: root, mode: "0755" }
+    - { path: "/var/log/nginx", owner: root, group: root, mode: "0755" }
+    - { path: "/etc/nginx/ehpanel-apps", owner: root, group: root, mode: "0755" }
+    - { path: "/etc/nginx/ehpanel-advanced", owner: root, group: root, mode: "0755" }
+    - { path: "/etc/ehpanel/advanced", owner: root, group: root, mode: "0755" }
+    - { path: "/var/lib/ehpanel", owner: "{{ ehpanel_web_panel_user }}", group: "{{ ehpanel_web_panel_group }}", mode: "0750" }
+    - { path: "{{ ehpanel_web_panel_local_file_manager_temp_root }}", owner: "{{ ehpanel_web_panel_user }}", group: "{{ ehpanel_web_panel_group }}", mode: "0750" }
+
+- name: Install Composer for Laravel provisioning
+  ansible.builtin.get_url:
+    url: https://getcomposer.org/download/latest-stable/composer.phar
+    dest: /usr/local/bin/composer
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install WP-CLI for WordPress provisioning
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+    dest: /usr/local/bin/wp
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Copy EHPanel Web source when provided
+  ansible.builtin.copy:
+    src: "{{ ehpanel_web_panel_source_path }}/"
+    dest: "{{ ehpanel_web_panel_root }}/"
+    owner: "{{ ehpanel_web_panel_user }}"
+    group: "{{ ehpanel_web_panel_group }}"
+    mode: preserve
+  when: ehpanel_web_panel_source_path | length > 0
+  notify: Restart ehpanel web
+
+- name: Install local provisioning helper
+  ansible.builtin.copy:
+    src: "{{ ehpanel_web_panel_source_path }}/scripts/ehpanel-local-provision.py"
+    dest: "{{ ehpanel_web_panel_local_helper }}"
+    owner: root
+    group: root
+    mode: "0750"
+  when: ehpanel_web_panel_source_path | length > 0
+
+- name: Render EHPanel Web environment
+  ansible.builtin.template:
+    src: ehpanel-web.env.j2
+    dest: "{{ ehpanel_web_panel_env_file }}"
+    owner: root
+    group: "{{ ehpanel_web_panel_group }}"
+    mode: "0640"
+  notify: Restart ehpanel web
+
+- name: Render local provisioning sudoers
+  ansible.builtin.template:
+    src: ehpanel-web-sudoers.j2
+    dest: /etc/sudoers.d/ehpanel-web-local-provision
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+- name: Create Python virtualenv
+  ansible.builtin.command:
+    cmd: "python3 -m venv {{ ehpanel_web_panel_venv }}"
+    creates: "{{ ehpanel_web_panel_venv }}/bin/python"
+  become_user: "{{ ehpanel_web_panel_user }}"
+
+- name: Install Python dependencies
+  ansible.builtin.pip:
+    requirements: "{{ ehpanel_web_panel_root }}/requirements.txt"
+    virtualenv: "{{ ehpanel_web_panel_venv }}"
+  become_user: "{{ ehpanel_web_panel_user }}"
+  when: ehpanel_web_panel_source_path | length > 0
+  notify: Restart ehpanel web
+
+- name: Install frontend dependencies
+  ansible.builtin.command:
+    cmd: "{{ ehpanel_web_panel_pnpm_bin }} install --frozen-lockfile"
+    chdir: "{{ ehpanel_web_panel_root }}/frontend"
+  become_user: "{{ ehpanel_web_panel_user }}"
+  when: ehpanel_web_panel_source_path | length > 0
+  changed_when: true
+
+- name: Ensure frontend build directory is writable
+  ansible.builtin.file:
+    path: "{{ ehpanel_web_panel_root }}/frontend/dist"
+    owner: "{{ ehpanel_web_panel_user }}"
+    group: "{{ ehpanel_web_panel_group }}"
+    state: directory
+    recurse: true
+  when: ehpanel_web_panel_source_path | length > 0
+
+- name: Build frontend
+  ansible.builtin.command:
+    cmd: "{{ ehpanel_web_panel_pnpm_bin }} build"
+    chdir: "{{ ehpanel_web_panel_root }}/frontend"
+  become_user: "{{ ehpanel_web_panel_user }}"
+  when: ehpanel_web_panel_source_path | length > 0
+  changed_when: true
+
+- name: Run Django migrations
+  ansible.builtin.command:
+    cmd: "{{ ehpanel_web_panel_venv }}/bin/python manage.py migrate --noinput"
+    chdir: "{{ ehpanel_web_panel_root }}"
+  become_user: "{{ ehpanel_web_panel_user }}"
+  environment:
+    ENV_FILE: "{{ ehpanel_web_panel_env_file }}"
+  when: ehpanel_web_panel_source_path | length > 0
+  changed_when: true
+
+- name: Bootstrap local panel node
+  ansible.builtin.command:
+    cmd: "{{ ehpanel_web_panel_venv }}/bin/python manage.py bootstrap_local_panel"
+    chdir: "{{ ehpanel_web_panel_root }}"
+  become_user: "{{ ehpanel_web_panel_user }}"
+  environment:
+    ENV_FILE: "{{ ehpanel_web_panel_env_file }}"
+  when: ehpanel_web_panel_source_path | length > 0
+  changed_when: true
+
+- name: Render systemd service
+  ansible.builtin.template:
+    src: ehpanel-web.service.j2
+    dest: "/etc/systemd/system/{{ ehpanel_web_panel_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart ehpanel web
+
+- name: Render local metrics systemd service
+  ansible.builtin.template:
+    src: ehpanel-web-metrics.service.j2
+    dest: "/etc/systemd/system/{{ ehpanel_web_panel_metrics_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+  when: ehpanel_web_panel_metrics_enabled | bool
+
+- name: Render local metrics systemd timer
+  ansible.builtin.template:
+    src: ehpanel-web-metrics.timer.j2
+    dest: "/etc/systemd/system/{{ ehpanel_web_panel_metrics_service_name }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+  when: ehpanel_web_panel_metrics_enabled | bool
+
+- name: Render panel nginx vhost
+  ansible.builtin.template:
+    src: ehpanel-web-nginx.conf.j2
+    dest: "/etc/nginx/conf.d/ehpanel-web-panel.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable EHPanel Web service
+  ansible.builtin.systemd:
+    name: "{{ ehpanel_web_panel_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: ehpanel_web_panel_source_path | length > 0
+
+- name: Enable EHPanel Web local metrics timer
+  ansible.builtin.systemd:
+    name: "{{ ehpanel_web_panel_metrics_service_name }}.timer"
+    enabled: true
+    state: started
+    daemon_reload: true
+  when:
+    - ehpanel_web_panel_source_path | length > 0
+    - ehpanel_web_panel_metrics_enabled | bool

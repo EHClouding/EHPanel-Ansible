@@ -1,0 +1,42 @@
+[Unit]
+Description=EHPanel Web Agent
+Documentation=https://github.com/ElitteHosting/EHPanel-Agent-Web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+{% if ehagent_privileged_mode %}
+User=root
+Group=root
+{% else %}
+User={{ ehagent_user }}
+Group={{ ehagent_group }}
+{% endif %}
+WorkingDirectory={{ ehagent_install_dir }}
+ExecStart={{ ehagent_install_dir }}/ehagent-web -config {{ ehagent_config_path }}
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ehagent-web
+
+{% if not ehagent_privileged_mode %}
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ ehagent_install_dir }}
+ReadWritePaths=/etc/ehagent
+ReadWritePaths=/var/log/ehagent
+{% else %}
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectSystem=false
+ProtectHome=false
+{% endif %}
+LimitNOFILE=65536
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target

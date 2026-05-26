@@ -1,0 +1,23 @@
+---
+postfix_hostname:       "{{ inventory_hostname }}"
+postfix_domain:         "{{ mail_domain | default(inventory_hostname) }}"
+postfix_packages:
+  - postfix
+  - openssl
+postfix_virtual_user: vmail
+postfix_virtual_group: vmail
+postfix_virtual_home: /var/vmail
+postfix_virtual_domains_file: /etc/postfix/ehpanel-virtual-domains
+postfix_virtual_mailboxes_file: /etc/postfix/ehpanel-virtual-mailboxes
+postfix_relay_host:     ""
+postfix_smtp_tls:       true
+postfix_smtpd_tls:      true
+postfix_tls_cert:       "/etc/pki/tls/certs/ehpanel-postfix.pem"
+postfix_tls_key:        "/etc/pki/tls/private/ehpanel-postfix.key"
+postfix_virtual_domains: []
+postfix_mynetworks:     "127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128"
+postfix_smtpd_relay_restrictions: "permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination"
+postfix_smtpd_recipient_restrictions: "permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination"
+postfix_max_message_size: 52428800
+postfix_inet_interfaces: "all"
+postfix_inet_protocols: "ipv4"

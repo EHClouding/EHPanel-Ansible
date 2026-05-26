@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  author: ElitteHosting
+  description: Base system configuration for EHPanel web nodes
+  license: proprietary
+  min_ansible_version: "2.17"
+  platforms:
+    - name: EL
+      versions:
+        - "10"
+
+dependencies: []

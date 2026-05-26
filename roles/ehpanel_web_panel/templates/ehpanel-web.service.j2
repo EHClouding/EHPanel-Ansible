@@ -1,0 +1,21 @@
+[Unit]
+Description=EHPanel Web per-node panel
+After=network-online.target postgresql.service valkey.service nginx.service lshttpd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ ehpanel_web_panel_user }}
+Group={{ ehpanel_web_panel_group }}
+WorkingDirectory={{ ehpanel_web_panel_root }}
+EnvironmentFile={{ ehpanel_web_panel_env_file }}
+ExecStart={{ ehpanel_web_panel_venv }}/bin/daphne -b {{ ehpanel_web_panel_bind }} -p {{ ehpanel_web_panel_port }} ehpanel_web.asgi:application
+Restart=always
+RestartSec=5
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectSystem=false
+ReadWritePaths={{ ehpanel_web_panel_root }} /var/log/ehpanel /tmp /home /etc/nginx /usr/local/lsws /etc/letsencrypt /var/vmail /var/log/nginx /var/lib/ehpanel
+
+[Install]
+WantedBy=multi-user.target

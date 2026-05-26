@@ -1,0 +1,21 @@
+---
+# roles/common/tasks/users.yml
+
+- name: Create EHPanel system users
+  ansible.builtin.user:
+    name:        "{{ item.name }}"
+    shell:       "{{ item.shell }}"
+    home:        "{{ item.home }}"
+    system:      "{{ item.system | default(false) }}"
+    create_home: false
+    state:       present
+  loop: "{{ common_system_users }}"
+
+- name: Create home directories for system users
+  ansible.builtin.file:
+    path:  "{{ item.home }}"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode:  "0750"
+  loop: "{{ common_system_users }}"

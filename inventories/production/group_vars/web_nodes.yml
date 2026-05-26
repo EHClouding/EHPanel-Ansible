@@ -1,0 +1,22 @@
+---
+# inventories/production/group_vars/web_nodes.yml
+
+php_versions:
+  - "8.1"
+  - "8.2"
+  - "8.3"
+  - "8.4"
+
+node_services_enabled:
+  - nginx
+  - httpd
+  - mariadb
+  - postgresql
+  - valkey
+  - pdns
+  - postfix
+  - dovecot
+  - rspamd
+  - ehagent-web
+
+firewall_additional_ports: []

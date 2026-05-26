@@ -1,0 +1,337 @@
+---
+- name: Validate EHPanel web node MVP
+  hosts: web_nodes
+  become: true
+  gather_facts: true
+
+  vars:
+    validate_primary_domain: "{{ (certbot_domains | first).domain | default(inventory_hostname) }}"
+    validate_dns_ip: "{{ powerdns_listen_address | default(ansible_host) }}"
+    validate_dns_probe_name: "{{ powerdns_validate_probe_name | default('') }}"
+
+  tasks:
+    - name: Verify AlmaLinux 10
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "AlmaLinux"
+          - ansible_distribution_major_version == "10"
+        fail_msg: "Expected AlmaLinux 10, got {{ ansible_distribution }} {{ ansible_distribution_version }}"
+        success_msg: "OS OK: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+
+    - name: Verify timezone
+      ansible.builtin.command: timedatectl show --property=Timezone --value
+      register: validate_timezone
+      changed_when: false
+
+    - name: Assert timezone is expected
+      ansible.builtin.assert:
+        that:
+          - validate_timezone.stdout | trim == common_timezone
+        fail_msg: "Timezone is {{ validate_timezone.stdout | trim }}, expected {{ common_timezone }}"
+        success_msg: "Timezone OK: {{ common_timezone }}"
+
+    - name: Verify NTP synchronization
+      ansible.builtin.command: timedatectl show --property=NTPSynchronized --value
+      register: validate_ntp
+      changed_when: false
+
+    - name: Assert NTP is synchronized
+      ansible.builtin.assert:
+        that:
+          - validate_ntp.stdout | trim == "yes"
+        fail_msg: "NTP is not synchronized. Agent HMAC timestamps may fail."
+        success_msg: "NTP OK"
+
+    - name: Verify EHPanel base directories
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /opt/ehpanel
+        - /etc/ehpanel
+        - /var/log/ehpanel
+        - /opt/ehagent
+        - /etc/ehagent
+      register: validate_dirs
+      changed_when: false
+
+    - name: Assert EHPanel base directories exist
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isdir
+        fail_msg: "Missing directory: {{ item.item }}"
+        success_msg: "Directory OK: {{ item.item }}"
+      loop: "{{ validate_dirs.results }}"
+
+    - name: Validate cgroups v2 filesystem
+      ansible.builtin.command: stat -fc %T /sys/fs/cgroup
+      register: validate_cgroups_fs
+      changed_when: false
+      failed_when: validate_cgroups_fs.stdout | trim != "cgroup2fs"
+
+    - name: Validate cgroup controllers
+      ansible.builtin.command: cat /sys/fs/cgroup/cgroup.controllers
+      register: validate_cgroup_controllers
+      changed_when: false
+      failed_when: item not in validate_cgroup_controllers.stdout.split()
+      loop: "{{ cgroups_required_controllers }}"
+
+    - name: Validate EHPanel web slice
+      ansible.builtin.command: "systemctl show {{ cgroups_web_slice_name }} --property=LoadState,ActiveState,CPUAccounting,MemoryAccounting,IOAccounting,TasksAccounting,MemoryMax,TasksMax"
+      register: validate_ehpanel_web_slice
+      changed_when: false
+      failed_when: "'LoadState=loaded' not in validate_ehpanel_web_slice.stdout or 'ActiveState=active' not in validate_ehpanel_web_slice.stdout"
+
+    - name: Validate EHPanel tenants slice
+      ansible.builtin.command: "systemctl show {{ cgroups_tenant_slice_name }} --property=LoadState,ActiveState,CPUAccounting,MemoryAccounting,IOAccounting,TasksAccounting,MemoryMax,TasksMax"
+      register: validate_ehpanel_tenant_slice
+      changed_when: false
+      failed_when: "'LoadState=loaded' not in validate_ehpanel_tenant_slice.stdout or 'ActiveState=active' not in validate_ehpanel_tenant_slice.stdout"
+
+    - name: Validate disk quotas
+      ansible.builtin.shell: |
+        set -euo pipefail
+        quotaon -p / || true
+      args:
+        executable: /bin/bash
+      register: validate_disk_quotas
+      changed_when: false
+      failed_when: >
+        (disk_quota_enable_user | default(true) | bool and 'user quota on' not in validate_disk_quotas.stdout)
+        or (disk_quota_enable_group | default(true) | bool and 'group quota on' not in validate_disk_quotas.stdout)
+
+    - name: Validate SSH effective configuration
+      ansible.builtin.command: sshd -T
+      register: validate_sshd_effective_config
+      changed_when: false
+
+    - name: Assert SSH hardening values
+      ansible.builtin.assert:
+        that:
+          - "'port ' ~ (security_ssh_port | string) in validate_sshd_effective_config.stdout"
+          - "'permitrootlogin ' ~ (security_ssh_permit_root_login | lower) in validate_sshd_effective_config.stdout"
+          - "'passwordauthentication ' ~ (security_ssh_password_auth | lower) in validate_sshd_effective_config.stdout"
+          - "'maxauthtries ' ~ (security_ssh_max_auth_tries | string) in validate_sshd_effective_config.stdout"
+        fail_msg: "SSH effective config does not match security-baseline variables."
+        success_msg: "SSH hardening config OK"
+
+    - name: Validate fail2ban sshd jail
+      ansible.builtin.command: fail2ban-client status sshd
+      changed_when: false
+
+    - name: Validate auditd status
+      ansible.builtin.command: auditctl -s
+      register: validate_auditd
+      changed_when: false
+      failed_when: "'enabled 1' not in validate_auditd.stdout"
+
+    - name: Verify expected services are active
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+      loop: "{{ node_services_enabled | default([]) + ['firewalld'] }}"
+      register: validate_services
+      changed_when: false
+
+    - name: Assert expected services are active
+      ansible.builtin.assert:
+        that:
+          - item.status.ActiveState == "active"
+        fail_msg: "Service {{ item.item }} is {{ item.status.ActiveState | default('unknown') }}"
+        success_msg: "Service OK: {{ item.item }}"
+      loop: "{{ validate_services.results }}"
+
+    - name: Verify listener ownership and bind addresses
+      ansible.builtin.shell: |
+        set -euo pipefail
+        ss -lntup | grep -E '0\.0\.0\.0:80|[[]::[]]:80' | grep nginx
+        ss -lntup | grep -E '0\.0\.0\.0:443|[[]::[]]:443' | grep nginx
+        ss -lntup | grep ':25' | grep master
+        ss -lntup | grep ':53' | grep pdns_server
+        ss -lntup | grep '127\.0\.0\.1:8080' | grep httpd
+        ss -lntup | grep '127\.0\.0\.1:3306' | grep mariadbd
+        ss -lntup | grep '127\.0\.0\.1:5432' | grep postgres
+        ss -lntup | grep '127\.0\.0\.1:6379' | grep valkey-server
+        ss -lntup | grep '127\.0\.0\.1:8053' | grep pdns_server
+        ss -lntup | grep '127\.0\.0\.1:11332' | grep rspamd
+        ss -lntup | grep '127\.0\.0\.1:11333' | grep rspamd
+        ss -lntup | grep '127\.0\.0\.1:11334' | grep rspamd
+        ! ss -lntup | grep ':443' | grep httpd
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Verify firewalld public surface
+      ansible.builtin.command: firewall-cmd --zone={{ firewall_zone }} --list-all
+      register: validate_firewall
+      changed_when: false
+
+    - name: Assert private ports are not public in firewalld
+      ansible.builtin.assert:
+        that:
+          - item not in validate_firewall.stdout
+        fail_msg: "Private port is public in firewalld: {{ item }}"
+        success_msg: "Private port not public: {{ item }}"
+      loop: "{{ firewall_blocked_ports }}"
+
+    - name: Assert required public services are enabled in firewalld
+      ansible.builtin.command: "firewall-cmd --zone={{ firewall_zone }} --query-service={{ item }}"
+      changed_when: false
+      loop: "{{ firewall_allowed_services }}"
+
+    - name: Assert forbidden public services are disabled in firewalld
+      ansible.builtin.command: "firewall-cmd --zone={{ firewall_zone }} --query-service={{ item }}"
+      register: validate_forbidden_firewall_services
+      changed_when: false
+      failed_when: validate_forbidden_firewall_services.rc == 0
+      loop: "{{ firewall_disabled_services }}"
+      when: firewall_strict_public_zone | default(true) | bool
+
+    - name: Assert required public ports are enabled in firewalld
+      ansible.builtin.command: "firewall-cmd --zone={{ firewall_zone }} --query-port={{ item }}"
+      changed_when: false
+      loop: "{{ firewall_allowed_ports + firewall_additional_ports }}"
+
+    - name: Validate Nginx config
+      ansible.builtin.command: nginx -t
+      changed_when: false
+
+    - name: Validate HTTP and HTTPS probes
+      ansible.builtin.shell: |
+        set -euo pipefail
+        curl -fsS http://{{ validate_primary_domain }}/ehpanel-node-status | grep 'EHPanel'
+        curl -fsS https://{{ validate_primary_domain }}/ehpanel-node-status | grep 'EHPanel'
+        curl -fsS https://{{ validate_primary_domain }}/ehpanel-apache-status | grep 'Apache backend active'
+        curl -fsS https://{{ validate_primary_domain }}/ehpanel-php-status | grep 'EHPanel PHP-FPM active'
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Validate Composer
+      ansible.builtin.command: "{{ composer_bin_path | default('/usr/local/bin/composer') }} --version"
+      changed_when: false
+      when: php_install_composer | default(true) | bool
+
+    - name: Validate Node.js
+      ansible.builtin.command: node --version
+      register: validate_nodejs
+      changed_when: false
+      when: nodejs_install | default(true) | bool
+
+    - name: Assert Node.js major version
+      ansible.builtin.assert:
+        that:
+          - validate_nodejs.stdout is match('^v' ~ (nodejs_major_version | default('22')) ~ '\\.')
+        fail_msg: "Node.js {{ validate_nodejs.stdout }} installed, expected major {{ nodejs_major_version | default('22') }}"
+        success_msg: "Node.js OK: {{ validate_nodejs.stdout }}"
+      when: nodejs_install | default(true) | bool
+
+    - name: Validate npm
+      ansible.builtin.command: npm --version
+      changed_when: false
+      when: nodejs_install | default(true) | bool
+
+    - name: Validate Let's Encrypt certificate
+      ansible.builtin.command: certbot certificates
+      register: validate_certbot
+      changed_when: false
+
+    - name: Assert primary certificate exists
+      ansible.builtin.assert:
+        that:
+          - validate_primary_domain in validate_certbot.stdout
+          - "'VALID:' in validate_certbot.stdout"
+        fail_msg: "Certbot certificate not valid for {{ validate_primary_domain }}"
+        success_msg: "Certificate OK: {{ validate_primary_domain }}"
+
+    - name: Validate MariaDB
+      ansible.builtin.command: mysqladmin ping
+      changed_when: false
+
+    - name: Validate PostgreSQL
+      ansible.builtin.command: pg_isready -h 127.0.0.1 -p 5432
+      changed_when: false
+
+    - name: Validate Valkey
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if command -v valkey-cli >/dev/null 2>&1; then
+          valkey-cli -h 127.0.0.1 -p 6379 ping
+        else
+          redis-cli -h 127.0.0.1 -p 6379 ping
+        fi
+      args:
+        executable: /bin/bash
+      register: validate_valkey
+      changed_when: false
+      failed_when: validate_valkey.stdout | trim != "PONG"
+
+    - name: Validate Valkey runtime configuration
+      ansible.builtin.shell: |
+        set -euo pipefail
+        valkey-server --check-system
+        valkey-cli -h 127.0.0.1 -p {{ valkey_port | default(6379) }} INFO memory | grep 'maxmemory_policy:{{ valkey_maxmemory_policy | default("allkeys-lru") }}'
+        valkey-cli -h 127.0.0.1 -p {{ valkey_port | default(6379) }} CONFIG GET bind | grep '{{ valkey_bind | default("127.0.0.1 -::1") }}'
+        valkey-cli -h 127.0.0.1 -p {{ valkey_port | default(6379) }} CONFIG GET protected-mode | grep '{{ valkey_protected_mode | default("yes") }}'
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Validate PowerDNS zones
+      ansible.builtin.shell: |
+        set -euo pipefail
+        pdnsutil list-all-zones
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Validate optional PowerDNS probe record
+      ansible.builtin.shell: |
+        set -euo pipefail
+        dig @{{ validate_dns_ip }} {{ validate_dns_probe_name }} A +short | grep '{{ validate_dns_ip }}'
+      args:
+        executable: /bin/bash
+      changed_when: false
+      when: validate_dns_probe_name | length > 0
+
+    - name: Validate Postfix
+      ansible.builtin.shell: |
+        set -euo pipefail
+        postfix check
+        postconf -n | grep 'smtpd_relay_restrictions'
+        postconf -n | grep 'smtpd_milters = inet:127.0.0.1:11332'
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Validate Dovecot
+      ansible.builtin.command: doveconf -n
+      changed_when: false
+
+    - name: Validate Rspamd
+      ansible.builtin.command: rspamadm configtest
+      changed_when: false
+
+    - name: Validate EHPanel agent binary and config
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /opt/ehagent/ehagent-web
+        - /etc/ehagent/config.toml
+      register: validate_agent_files
+      changed_when: false
+
+    - name: Assert EHPanel agent files exist
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+        fail_msg: "Missing agent file: {{ item.item }}"
+        success_msg: "Agent file OK: {{ item.item }}"
+      loop: "{{ validate_agent_files.results }}"
+
+    - name: Show validation summary
+      ansible.builtin.debug:
+        msg:
+          - "EHPanel web node validation passed for {{ inventory_hostname }}"
+          - "Domain: {{ validate_primary_domain }}"
+          - "Timezone: {{ validate_timezone.stdout | trim }}"
+          - "DNS listener: {{ validate_dns_ip }}:53"

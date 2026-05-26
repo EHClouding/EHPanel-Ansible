@@ -1,0 +1,58 @@
+---
+# RIESGO R01: PHP 7.4 no disponible en AlmaLinux 10 en repos estándar.
+# Verificar disponibilidad en Remi antes de agregarlo a php_versions.
+php_versions:
+  - "8.1"
+  - "8.2"
+  - "8.3"
+php_default_version:       "8.3"
+php_install_strategy:      "native"
+php_native_packages:
+  - php
+  - php-cli
+  - php-common
+  - php-curl
+  - php-fpm
+  - php-gd
+  - php-intl
+  - php-mbstring
+  - php-mysqlnd
+  - php-opcache
+  - php-pdo
+  - php-pgsql
+  - php-xml
+  - php-zip
+  - php-bcmath
+  - php-soap
+  - php-pecl-imagick
+  - php-pecl-redis
+php_extensions_common:
+  - curl
+  - gd
+  - intl
+  - mbstring
+  - mysqlnd
+  - opcache
+  - pdo
+  - pdo_mysql
+  - pdo_pgsql
+  - redis
+  - xml
+  - zip
+  - bcmath
+  - soap
+php_install_composer: true
+composer_bin_path: /usr/local/bin/composer
+composer_download_url: https://getcomposer.org/download/latest-stable/composer.phar
+# Optional sha384 checksum, for example:
+# composer_download_checksum: "sha384:<expected_hash>"
+composer_download_checksum: ""
+php_fpm_listen_mode:       "socket"
+php_fpm_socket_dir:        /run/php-fpm
+php_opcache_memory:        256
+php_upload_max_filesize:   "256M"
+php_post_max_size:         "256M"
+php_max_execution_time:    300
+php_memory_limit:          "256M"
+php_versions_unsupported_on_al10:
+  - "7.4"

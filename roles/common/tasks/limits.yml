@@ -1,0 +1,12 @@
+---
+# roles/common/tasks/limits.yml
+# pam_limits gestiona /etc/security/limits.d/ de forma idempotente.
+
+- name: Configure system limits
+  community.general.pam_limits:
+    domain:     "{{ item.domain }}"
+    limit_type: "{{ item.type }}"
+    limit_item: "{{ item.item }}"
+    value:      "{{ item.value }}"
+    dest:       /etc/security/limits.d/90-ehpanel.conf
+  loop: "{{ common_limits }}"

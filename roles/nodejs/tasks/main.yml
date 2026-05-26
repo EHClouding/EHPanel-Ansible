@@ -1,0 +1,67 @@
+---
+- name: Install Node.js packages
+  ansible.builtin.dnf:
+    name: "{{ nodejs_packages }}"
+    state: present
+  when: nodejs_install | bool
+
+- name: Install Node.js build dependencies
+  ansible.builtin.dnf:
+    name: "{{ nodejs_build_packages }}"
+    state: present
+  when:
+    - nodejs_install | bool
+    - nodejs_install_build_tools | bool
+
+- name: Verify Node.js version
+  ansible.builtin.command: node --version
+  register: nodejs_version_check
+  changed_when: false
+  when: nodejs_install | bool
+
+- name: Verify npm version
+  ansible.builtin.command: npm --version
+  register: npm_version_check
+  changed_when: false
+  when: nodejs_install | bool
+
+- name: Install pnpm for EHPanel frontend and Node app deploys
+  community.general.npm:
+    name: pnpm
+    version: "{{ nodejs_pnpm_version }}"
+    global: true
+    state: present
+  when:
+    - nodejs_install | bool
+    - nodejs_install_pnpm | bool
+
+- name: Verify pnpm version
+  ansible.builtin.command: pnpm --version
+  register: pnpm_version_check
+  changed_when: false
+  when:
+    - nodejs_install | bool
+    - nodejs_install_pnpm | bool
+
+- name: Assert expected Node.js major version
+  ansible.builtin.assert:
+    that:
+      - nodejs_version_check.stdout is match('^v' ~ nodejs_major_version ~ '\\.')
+    fail_msg: "Node.js {{ nodejs_version_check.stdout }} installed, expected major {{ nodejs_major_version }}"
+    success_msg: "Node.js OK: {{ nodejs_version_check.stdout }}"
+  when: nodejs_install | bool
+
+- name: Show npm version
+  ansible.builtin.debug:
+    msg: "npm OK: {{ npm_version_check.stdout }}"
+  when:
+    - nodejs_install | bool
+    - npm_version_check.stdout is defined
+
+- name: Show pnpm version
+  ansible.builtin.debug:
+    msg: "pnpm OK: {{ pnpm_version_check.stdout }}"
+  when:
+    - nodejs_install | bool
+    - nodejs_install_pnpm | bool
+    - pnpm_version_check.stdout is defined

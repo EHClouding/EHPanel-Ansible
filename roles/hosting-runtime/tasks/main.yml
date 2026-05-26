@@ -1,0 +1,113 @@
+---
+- name: Ensure EHPanel hosting runtime directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ hosting_runtime_base_dirs }}"
+
+- name: Ensure per-account software snippet root is present
+  ansible.builtin.file:
+    path: /etc/ehpanel/software
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Allow web services to read user home traversals
+  ansible.posix.seboolean:
+    name: httpd_enable_homedirs
+    state: true
+    persistent: true
+  when:
+    - hosting_runtime_selinux_enabled | bool
+    - not ansible_check_mode
+
+- name: Register public_html read-only SELinux contexts
+  community.general.sefcontext:
+    target: "{{ item }}"
+    setype: httpd_sys_content_t
+    state: present
+  loop: "{{ hosting_runtime_content_fcontexts }}"
+  when:
+    - hosting_runtime_selinux_enabled | bool
+    - not ansible_check_mode
+
+- name: Register WordPress writable SELinux contexts
+  community.general.sefcontext:
+    target: "{{ item }}"
+    setype: httpd_sys_rw_content_t
+    state: present
+  loop: "{{ hosting_runtime_wordpress_fcontexts }}"
+  when:
+    - hosting_runtime_selinux_enabled | bool
+    - not ansible_check_mode
+
+- name: Register EHPanel log SELinux contexts
+  community.general.sefcontext:
+    target: "{{ item }}"
+    setype: httpd_log_t
+    state: present
+  loop: "{{ hosting_runtime_log_fcontexts }}"
+  when:
+    - hosting_runtime_selinux_enabled | bool
+    - not ansible_check_mode
+
+- name: Restore EHPanel log SELinux context
+  ansible.builtin.command: restorecon -RF /var/log/ehpanel
+  changed_when: false
+  when:
+    - hosting_runtime_selinux_enabled | bool
+    - not ansible_check_mode
+
+- name: Install WordPress ACL repair helper
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/ehpanel-wordpress-permissions
+    owner: root
+    group: root
+    mode: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      if [ "$#" -ne 2 ]; then
+        echo "usage: ehpanel-wordpress-permissions <username> <public_html>" >&2
+        exit 2
+      fi
+
+      user="$1"
+      root="$2"
+      wp_content="${root}/wp-content"
+      wp_config="${root}/wp-config.php"
+      htaccess="${root}/.htaccess"
+
+      mkdir -p "${wp_content}/uploads" "${wp_content}/upgrade" "${wp_content}/plugins" "${wp_content}/themes"
+      touch "${htaccess}"
+
+      chown -R "${user}:${user}" "${wp_content}"
+      [ -f "${wp_config}" ] && chown "${user}:${user}" "${wp_config}"
+      chown "${user}:${user}" "${htaccess}"
+
+      find "${wp_content}" -type d -exec chmod 0755 {} +
+      find "${wp_content}" -type f -exec chmod 0644 {} +
+      [ -f "${wp_config}" ] && chmod 0644 "${wp_config}"
+      chmod 0644 "${htaccess}"
+
+      if command -v setfacl >/dev/null 2>&1; then
+        for runtime_user in {{ hosting_runtime_php_runtime_users | join(' ') }}; do
+          if id "${runtime_user}" >/dev/null 2>&1; then
+            setfacl -R -m "u:${runtime_user}:rwX" "${wp_content}"
+            setfacl -R -d -m "u:${runtime_user}:rwX" "${wp_content}"
+            [ -f "${wp_config}" ] && setfacl -m "u:${runtime_user}:rw" "${wp_config}"
+            setfacl -m "u:${runtime_user}:rw" "${htaccess}"
+          fi
+        done
+      fi
+
+      if command -v restorecon >/dev/null 2>&1; then
+        restorecon -RF "${wp_content}" || true
+        [ -f "${wp_config}" ] && restorecon -F "${wp_config}" || true
+        restorecon -F "${htaccess}" || true
+      fi

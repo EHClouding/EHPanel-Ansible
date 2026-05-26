@@ -1,0 +1,23 @@
+---
+postgresql_version:               "16"
+postgresql_install_strategy:      "native"
+postgresql_packages:
+  - postgresql-server
+  - postgresql
+  - python3-psycopg2
+postgresql_service_name:          "postgresql"
+postgresql_data_dir:              "/var/lib/pgsql/data"
+postgresql_config_path:           "/var/lib/pgsql/data/postgresql.conf"
+postgresql_hba_path:              "/var/lib/pgsql/data/pg_hba.conf"
+postgresql_port:                  5432
+postgresql_listen_addresses:      "127.0.0.1"
+postgresql_max_connections:       200
+postgresql_shared_buffers:        "256MB"
+postgresql_work_mem:              "16MB"
+postgresql_maintenance_work_mem:  "256MB"
+postgresql_locale:                "es_MX.UTF-8"
+postgresql_encoding:              "UTF8"
+postgresql_admin_user:            postgres
+postgresql_admin_password:        "{{ vault_postgresql_admin_password | default('') }}"
+postgresql_databases:             []
+postgresql_users:                 []

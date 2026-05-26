@@ -1,0 +1,10 @@
+---
+# playbooks/site.yml — Playbook maestro: aplica todos los roles a todos los grupos.
+# Útil para re-aprovisionar todo el inventario de una vez.
+#
+# Uso:
+#   ansible-playbook -i inventories/staging/hosts.yml playbooks/site.yml --ask-vault-pass
+
+- name: Incluir playbook de nodos web
+  ansible.builtin.import_playbook: web-node.yml
+  when: groups['web_nodes'] | default([]) | length > 0

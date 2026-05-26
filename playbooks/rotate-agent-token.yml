@@ -1,0 +1,46 @@
+---
+# playbooks/rotate-agent-token.yml — Fuerza rotación del token del agente.
+# Borra config.toml/node.key y ejecuta re-enrollment con el nuevo token.
+#
+# PREREQUISITO: Generar un nuevo token en EHPanel Web y actualizar vault.yml
+#   ansible-vault edit inventories/staging/host_vars/theflakito.com/vault.yml
+#   → vault_ehagent_enrollment_token: "enroll_NEW_TOKEN"
+#
+# Uso:
+#   ansible-playbook -i inventories/staging/hosts.yml playbooks/rotate-agent-token.yml --ask-vault-pass
+
+- name: Rotar token del agente EHPanel
+  hosts: web_nodes
+  become: true
+  gather_facts: false
+  vars:
+    ehagent_service_name: ehagent-web
+    ehagent_config_file: "{{ ehagent_config_path | default('/etc/ehagent/config.toml') }}"
+    ehagent_key_file: "{{ ehagent_keypair_path | default('/etc/ehagent/node.key') }}"
+
+  tasks:
+    - name: Confirmar rotación (fail-safe)
+      ansible.builtin.assert:
+        that: rotate_agent_token_confirmed | default(false) | bool
+        fail_msg: >
+          Operación cancelada. Para confirmar, ejecuta con:
+          -e rotate_agent_token_confirmed=true
+        success_msg: "Rotación de token confirmada"
+
+    - name: Parar el servicio del agente
+      ansible.builtin.systemd:
+        name: "{{ ehagent_service_name }}"
+        state: stopped
+      ignore_errors: true
+
+    - name: Eliminar estado local del agente para forzar re-enrollment
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ ehagent_config_file }}"
+        - "{{ ehagent_key_file }}"
+
+    - name: Re-enrollar el agente con el nuevo token
+      ansible.builtin.import_role:
+        name: ehagent

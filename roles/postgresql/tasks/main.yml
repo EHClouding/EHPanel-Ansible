@@ -1,0 +1,106 @@
+---
+- name: Install native PostgreSQL packages
+  ansible.builtin.dnf:
+    name: "{{ postgresql_packages }}"
+    state: present
+  when: postgresql_install_strategy == "native"
+
+- name: Check if PostgreSQL cluster is initialized
+  ansible.builtin.stat:
+    path: "{{ postgresql_data_dir }}/PG_VERSION"
+  register: postgresql_pg_version
+
+- name: Initialize PostgreSQL cluster
+  ansible.builtin.command: postgresql-setup --initdb
+  when:
+    - not ansible_check_mode
+    - not postgresql_pg_version.stat.exists
+  changed_when: true
+
+- name: Configure PostgreSQL server settings
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_config_path }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    create: false
+    owner: postgres
+    group: postgres
+    mode: "0600"
+  loop:
+    - regexp: "^#?listen_addresses\\s*="
+      line: "listen_addresses = '{{ postgresql_listen_addresses }}'"
+    - regexp: "^#?port\\s*="
+      line: "port = {{ postgresql_port }}"
+    - regexp: "^#?max_connections\\s*="
+      line: "max_connections = {{ postgresql_max_connections }}"
+    - regexp: "^#?shared_buffers\\s*="
+      line: "shared_buffers = {{ postgresql_shared_buffers }}"
+    - regexp: "^#?work_mem\\s*="
+      line: "work_mem = {{ postgresql_work_mem }}"
+    - regexp: "^#?maintenance_work_mem\\s*="
+      line: "maintenance_work_mem = {{ postgresql_maintenance_work_mem }}"
+  notify: restart postgresql
+
+- name: Ensure PostgreSQL allows local TCP connections only
+  ansible.builtin.blockinfile:
+    path: "{{ postgresql_hba_path }}"
+    marker: "# {mark} EHPanel local access"
+    insertbefore: "^host\\s+all\\s+all\\s+127\\.0\\.0\\.1/32"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+    block: |
+      host    all             all             127.0.0.1/32            scram-sha-256
+      host    all             all             ::1/128                 scram-sha-256
+  notify: reload postgresql
+
+- name: Enable and start PostgreSQL
+  ansible.builtin.systemd:
+    name: "{{ postgresql_service_name }}"
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Wait for PostgreSQL local port
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: "{{ postgresql_port }}"
+    timeout: 30
+  when: not ansible_check_mode
+
+- name: Check PostgreSQL responds locally
+  ansible.builtin.command: "pg_isready -h 127.0.0.1 -p {{ postgresql_port }}"
+  register: postgresql_ready
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Create PostgreSQL users
+  community.postgresql.postgresql_user:
+    name: "{{ item.name }}"
+    password: "{{ item.password | default(omit) }}"
+    role_attr_flags: "{{ item.role_attr_flags | default(omit) }}"
+    state: present
+  become_user: postgres
+  loop: "{{ postgresql_users }}"
+  no_log: true
+  when:
+    - not ansible_check_mode
+    - postgresql_users | length > 0
+
+- name: Create PostgreSQL databases
+  community.postgresql.postgresql_db:
+    name: "{{ item.name }}"
+    owner: "{{ item.owner | default(omit) }}"
+    encoding: "{{ item.encoding | default(postgresql_encoding) }}"
+    lc_collate: "{{ item.lc_collate | default(omit) }}"
+    lc_ctype: "{{ item.lc_ctype | default(omit) }}"
+    state: present
+  become_user: postgres
+  loop: "{{ postgresql_databases }}"
+  when:
+    - not ansible_check_mode
+    - postgresql_databases | length > 0
+
+- name: Show PostgreSQL status
+  ansible.builtin.debug:
+    msg: "{{ postgresql_ready.stdout | default('PostgreSQL check skipped in check mode') }}"

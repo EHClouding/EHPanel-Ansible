@@ -1,0 +1,11 @@
+---
+- name: restart openlitespeed
+  ansible.builtin.systemd:
+    name: "{{ openlitespeed_service }}"
+    state: restarted
+  when: not ansible_check_mode
+
+- name: reload openlitespeed
+  ansible.builtin.command: "{{ openlitespeed_home }}/bin/lswsctrl restart"
+  changed_when: true
+  when: not ansible_check_mode

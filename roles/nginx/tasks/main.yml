@@ -1,0 +1,46 @@
+---
+- name: Install Nginx
+  ansible.builtin.dnf:
+    name: nginx
+    state: present
+
+- name: Ensure Nginx vhost directory exists
+  ansible.builtin.file:
+    path: "{{ nginx_vhosts_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy EHPanel node status site
+  ansible.builtin.template:
+    src: ehpanel-node-status.conf.j2
+    dest: "{{ nginx_vhosts_dir }}/ehpanel-node-status.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload nginx
+
+- name: Deploy node status HTML
+  ansible.builtin.template:
+    src: node-status.html.j2
+    dest: /usr/share/nginx/html/ehpanel-node-status.html
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Allow Nginx reverse proxy connections under SELinux
+  ansible.posix.seboolean:
+    name: httpd_can_network_connect
+    state: true
+    persistent: true
+  when:
+    - ansible_selinux is defined
+    - ansible_selinux.status | default('disabled') != 'disabled'
+
+- name: Enable and start Nginx
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+  when: not ansible_check_mode

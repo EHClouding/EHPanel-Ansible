@@ -1,0 +1,14 @@
+---
+disk_quota_filesystems:
+  - mount: /
+    options: "usrquota,grpquota"
+disk_quota_packages:
+  - quota
+  - quota-nls
+  - xfsprogs
+disk_quota_default_soft_mb:  5120
+disk_quota_default_hard_mb:  10240
+disk_quota_grace_days:       7
+disk_quota_enable_user: true
+disk_quota_enable_group: true
+disk_quota_enable_project: false

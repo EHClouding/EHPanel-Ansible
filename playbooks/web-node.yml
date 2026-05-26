@@ -1,0 +1,107 @@
+---
+- name: Provision EHPanel web node
+  hosts: web_nodes
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Verify AlmaLinux 10
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "AlmaLinux"
+          - ansible_distribution_major_version == "10"
+        fail_msg: "This playbook requires AlmaLinux 10. Detected {{ ansible_distribution }} {{ ansible_distribution_version }}."
+
+    - name: Verify minimum root disk space
+      ansible.builtin.assert:
+        that:
+          - (ansible_mounts | selectattr('mount', 'equalto', '/') | list | first).size_available > 5368709120
+        fail_msg: "Insufficient free disk on /. Minimum: 5 GB."
+
+  roles:
+    - role: common
+      tags: [common, base]
+
+    - role: security-baseline
+      tags: [security, hardening]
+
+    - role: cgroups
+      tags: [cgroups, resources]
+
+    - role: disk-quotas
+      tags: [quotas, storage]
+
+    - role: firewall
+      tags: [firewall, network]
+
+    - role: nginx
+      tags: [nginx, web]
+
+    - role: apache
+      tags: [apache, httpd, web]
+
+    - role: php
+      tags: [php, web]
+
+    - role: openlitespeed
+      tags: [openlitespeed, ols, web]
+
+    - role: hosting-runtime
+      tags: [hosting-runtime, wordpress, web]
+
+    - role: nodejs
+      tags: [nodejs, apps]
+
+    - role: mariadb
+      tags: [mariadb, database]
+
+    - role: postgresql
+      tags: [postgresql, pgsql, database]
+
+    - role: db-admin-tools
+      tags: [db-admin-tools, phpmyadmin, adminer, database]
+
+    - role: valkey
+      tags: [valkey, cache]
+
+    - role: ehpanel_webmail
+      when: ehpanel_webmail_enabled | default(true) | bool
+      tags: [ehpanel-webmail, webmail, mail]
+
+    - role: ehpanel_web_panel
+      when: ehpanel_web_panel_enabled | default(true) | bool
+      tags: [ehpanel-web, panel]
+
+    - role: powerdns
+      tags: [powerdns, dns]
+
+    - role: postfix
+      tags: [postfix, mail, smtp]
+
+    - role: dovecot
+      tags: [dovecot, mail, imap]
+
+    - role: rspamd
+      tags: [rspamd, mail, antispam]
+
+    - role: certbot
+      tags: [certbot, ssl, tls]
+
+    - role: ehagent
+      when: ehagent_enabled | default(false) | bool
+      tags: [ehagent, agent]
+
+  post_tasks:
+    - name: Collect final service states
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+      loop: "{{ node_services_enabled | default([]) }}"
+      register: services_status
+      changed_when: false
+      ignore_errors: true
+
+    - name: Show final service states
+      ansible.builtin.debug:
+        msg: "{{ item.item }}: {{ item.status.ActiveState | default('unknown') }}"
+      loop: "{{ services_status.results }}"
+      when: services_status.results is defined

@@ -1,0 +1,4 @@
+---
+# Copy to vault.yml, fill real values, then encrypt with ansible-vault.
+
+vault_staging_monitoring_webhook: "CHANGEME"

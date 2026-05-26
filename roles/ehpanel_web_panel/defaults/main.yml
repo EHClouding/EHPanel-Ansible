@@ -1,0 +1,54 @@
+---
+ehpanel_web_panel_enabled: true
+ehpanel_web_panel_user: ehpanel
+ehpanel_web_panel_group: ehpanel
+ehpanel_web_panel_root: /opt/ehpanel/web
+ehpanel_web_panel_venv: /opt/ehpanel/web/.venv
+ehpanel_web_panel_env_file: /etc/ehpanel/ehpanel-web.env
+ehpanel_web_panel_service_name: ehpanel-web
+ehpanel_web_panel_metrics_service_name: ehpanel-web-metrics
+ehpanel_web_panel_metrics_enabled: true
+ehpanel_web_panel_metrics_interval: 2min
+ehpanel_web_panel_bind: 127.0.0.1
+ehpanel_web_panel_port: 8004
+ehpanel_web_panel_public_url: "https://{{ inventory_hostname }}"
+ehpanel_web_panel_domain: "{{ inventory_hostname }}"
+ehpanel_web_panel_ssl_enabled: false
+ehpanel_web_panel_ssl_cert: "/etc/letsencrypt/live/{{ ehpanel_web_panel_domain }}/fullchain.pem"
+ehpanel_web_panel_ssl_key: "/etc/letsencrypt/live/{{ ehpanel_web_panel_domain }}/privkey.pem"
+ehpanel_web_panel_acme_webroot: /var/www/html
+ehpanel_web_panel_source_path: ""
+ehpanel_web_panel_secret_key: ""
+ehpanel_web_panel_dbtools_sso_secret: ""
+ehpanel_web_panel_dbtools_credential_key: ""
+ehpanel_web_panel_webmail_sso_secret: ""
+ehpanel_web_panel_debug: "false"
+ehpanel_web_panel_database_url: "postgres://ehpanel_web:change_me@127.0.0.1:5432/ehpanel_web"
+ehpanel_web_panel_redis_url: "redis://127.0.0.1:6379/0"
+ehpanel_web_panel_billing_token: ""
+ehpanel_web_panel_billing_api_base: "https://panel.ehclouding.com/api/v1"
+ehpanel_web_panel_billing_api_token: ""
+ehpanel_web_panel_local_hostname: "{{ inventory_hostname }}"
+ehpanel_web_panel_local_datacenter: ""
+ehpanel_web_panel_local_public_ip: "{{ ansible_default_ipv4.address | default('') }}"
+ehpanel_web_panel_local_helper: /usr/local/sbin/ehpanel-local-provision
+ehpanel_web_panel_pnpm_bin: /usr/local/bin/pnpm
+ehpanel_web_panel_local_dry_run: "false"
+ehpanel_web_panel_local_sudo: "true"
+ehpanel_web_panel_local_home_root: /home
+ehpanel_web_panel_local_nginx_vhosts_dir: /etc/nginx/conf.d
+ehpanel_web_panel_local_ols_home: /usr/local/lsws
+ehpanel_web_panel_local_ols_backend_port: 8088
+ehpanel_web_panel_local_panel_backend: "http://{{ ehpanel_web_panel_bind }}:{{ ehpanel_web_panel_port }}"
+ehpanel_web_panel_local_panel_host_header: "{{ ehpanel_web_panel_domain }}"
+ehpanel_web_panel_provision_dns: "true"
+ehpanel_web_panel_provision_ssl: "false"
+ehpanel_web_panel_provision_mail: "true"
+ehpanel_web_panel_local_webmail_enabled: "true"
+ehpanel_web_panel_local_webmail_root: /opt/ehpanel-webmail
+ehpanel_web_panel_local_webmail_port: 8012
+ehpanel_web_panel_local_dovecot_passwd_file: /etc/dovecot/ehpanel-users
+ehpanel_web_panel_local_postfix_virtual_domains_file: /etc/postfix/ehpanel-virtual-domains
+ehpanel_web_panel_local_postfix_virtual_mailboxes_file: /etc/postfix/ehpanel-virtual-mailboxes
+ehpanel_web_panel_local_file_manager_temp_root: "{{ ehpanel_web_panel_root }}/media/file-manager"
+ehagent_enabled: false

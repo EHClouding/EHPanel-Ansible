@@ -1,0 +1,11 @@
+---
+- name: restart php-fpm
+  ansible.builtin.systemd:
+    name: php-fpm
+    state: restarted
+  listen: restart php-fpm
+
+- name: restart httpd
+  ansible.builtin.systemd:
+    name: httpd
+    state: restarted

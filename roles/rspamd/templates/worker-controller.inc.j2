@@ -1,0 +1,5 @@
+# Managed by Ansible.
+bind_socket = "{{ rspamd_controller_bind }}";
+{% if rspamd_controller_password | length > 0 %}
+password = "{{ rspamd_controller_password }}";
+{% endif %}

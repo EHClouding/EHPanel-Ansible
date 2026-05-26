@@ -1,0 +1,25 @@
+# Managed by Ansible.
+launch={{ powerdns_backend }}
+
+local-address={{ powerdns_listen_address }}
+local-port={{ powerdns_listen_port }}
+setgid=pdns
+setuid=pdns
+daemon=no
+
+disable-syslog=no
+log-dns-details=no
+log-dns-queries=no
+
+api=yes
+api-key={{ powerdns_api_key }}
+webserver=yes
+webserver-address=127.0.0.1
+webserver-port={{ powerdns_api_port }}
+webserver-allow-from={{ powerdns_webserver_allow_from }}
+
+gmysql-host={{ powerdns_db_host }}
+gmysql-dbname={{ powerdns_db_name }}
+gmysql-user={{ powerdns_db_user }}
+gmysql-password={{ powerdns_db_password }}
+gmysql-dnssec={{ 'yes' if powerdns_dnssec else 'no' }}

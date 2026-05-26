@@ -1,0 +1,29 @@
+---
+ansible_port: 22
+ansible_user: root
+
+common_hostname: web-01.theflakito.com
+mail_domain: theflakito.com
+
+php_versions:
+  - "8.2"
+  - "8.3"
+
+certbot_domains:
+  - domain: web-01.theflakito.com
+    method: webroot
+    email: admin@theflakito.com
+    aliases: []
+  - domain: mail.clientes.theflakito.com
+    method: webroot
+    email: admin@theflakito.com
+    aliases: []
+    mail_services: true
+certbot_staging: false
+
+powerdns_listen_address: "204.168.159.142"
+
+ehagent_agent_type: web
+ehagent_panel_target: ehpanel-web
+ehagent_hostname: web-01.theflakito.com
+ehagent_panel_url: "wss://web.theflakito.com/ws/agent/"

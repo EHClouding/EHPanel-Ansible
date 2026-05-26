@@ -1,0 +1,18 @@
+<?php
+// Managed by Ansible.
+$cfg['blowfish_secret'] = '{{ phpmyadmin_blowfish_secret }}';
+
+$i = 0;
+$i++;
+$cfg['Servers'][$i]['auth_type'] = 'signon';
+$cfg['Servers'][$i]['SignonSession'] = 'EHPanelPmaSignon';
+$cfg['Servers'][$i]['SignonURL'] = '/ehpanel-dbtools/phpmyadmin/';
+$cfg['Servers'][$i]['host'] = '{{ phpmyadmin_mariadb_host }}';
+$cfg['Servers'][$i]['port'] = '{{ phpmyadmin_mariadb_port }}';
+$cfg['Servers'][$i]['compress'] = false;
+$cfg['Servers'][$i]['AllowNoPassword'] = false;
+$cfg['Servers'][$i]['extension'] = 'mysqli';
+
+$cfg['TempDir'] = '/var/lib/phpmyadmin/tmp';
+$cfg['UploadDir'] = '';
+$cfg['SaveDir'] = '';

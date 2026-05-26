@@ -1,0 +1,29 @@
+---
+ehpanel_webmail_enabled: true
+ehpanel_webmail_user: ehwebmail
+ehpanel_webmail_group: ehwebmail
+ehpanel_webmail_root: /opt/ehpanel-webmail
+ehpanel_webmail_venv: /opt/ehpanel-webmail/venv
+ehpanel_webmail_env_dir: /etc/ehpanel-webmail
+ehpanel_webmail_env_file: /etc/ehpanel-webmail/webmail.env
+ehpanel_webmail_service_name: ehpanel-webmail
+ehpanel_webmail_bind: 127.0.0.1
+ehpanel_webmail_port: 8012
+ehpanel_webmail_source_path: ""
+ehpanel_webmail_secret_key: "{{ ehpanel_web_panel_secret_key | default('', true) }}"
+ehpanel_webmail_sso_secret: "{{ ehpanel_web_panel_webmail_sso_secret | default(ehpanel_web_panel_secret_key | default('', true), true) }}"
+ehpanel_webmail_panel_url: "{{ ehpanel_web_panel_public_url | default('', true) }}"
+ehpanel_webmail_allowed_hosts: "*"
+ehpanel_webmail_csrf_trusted_origins: ""
+ehpanel_webmail_database_url: "sqlite:///{{ ehpanel_webmail_root }}/backend/db.sqlite3"
+ehpanel_webmail_imap_host: 127.0.0.1
+ehpanel_webmail_imap_port: 993
+ehpanel_webmail_smtp_host: 127.0.0.1
+ehpanel_webmail_smtp_port: 25
+ehpanel_webmail_smtp_use_tls: "false"
+ehpanel_webmail_smtp_auth_required: "false"
+ehpanel_webmail_attachment_limit_mb: 25
+ehpanel_webmail_max_upload_mb: 1024
+ehpanel_webmail_drive_root: /var/lib/ehpanel-webmail/drive
+ehpanel_webmail_compose_upload_root: /var/lib/ehpanel-webmail/compose
+ehpanel_webmail_pnpm_bin: "{{ ehpanel_web_panel_pnpm_bin | default('/usr/local/bin/pnpm') }}"
