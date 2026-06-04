@@ -45,6 +45,9 @@ log "Resetting checkout to origin/${BRANCH}"
 runuser -u {{ ehpanel_web_panel_user }} -- git reset --hard "origin/${BRANCH}"
 NEW_COMMIT=$(runuser -u {{ ehpanel_web_panel_user }} -- git rev-parse --short HEAD)
 
+log "Installing local provisioning helper"
+install -o root -g root -m 0750 "${DEPLOY_DIR}/scripts/ehpanel-local-provision.py" "{{ ehpanel_web_panel_local_helper }}"
+
 log "Installing Python dependencies"
 runuser -u {{ ehpanel_web_panel_user }} -- "${VENV_DIR}/bin/pip" install -r requirements.txt --quiet
 
