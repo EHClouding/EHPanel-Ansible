@@ -4,6 +4,8 @@ server {
 
     access_log /var/log/nginx/ehpanel-web-access.log;
     error_log /var/log/nginx/ehpanel-web-error.log;
+    client_max_body_size {{ ehpanel_web_panel_client_max_body_size }};
+    client_body_timeout {{ ehpanel_web_panel_upload_timeout }};
 
     location ^~ /.well-known/acme-challenge/ {
         root {{ ehpanel_web_panel_acme_webroot }};
@@ -42,6 +44,9 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_request_buffering off;
+        proxy_read_timeout {{ ehpanel_web_panel_upload_timeout }};
+        proxy_send_timeout {{ ehpanel_web_panel_upload_timeout }};
         proxy_pass http://{{ ehpanel_web_panel_bind }}:{{ ehpanel_web_panel_port }};
     }
 {% endif %}
@@ -60,6 +65,8 @@ server {
 
     access_log /var/log/nginx/ehpanel-web-ssl-access.log;
     error_log /var/log/nginx/ehpanel-web-ssl-error.log;
+    client_max_body_size {{ ehpanel_web_panel_client_max_body_size }};
+    client_body_timeout {{ ehpanel_web_panel_upload_timeout }};
 
     location ^~ /ehpanel-dbtools/ {
         proxy_set_header Host $host;
@@ -87,6 +94,9 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto https;
+        proxy_request_buffering off;
+        proxy_read_timeout {{ ehpanel_web_panel_upload_timeout }};
+        proxy_send_timeout {{ ehpanel_web_panel_upload_timeout }};
         proxy_pass http://{{ ehpanel_web_panel_bind }}:{{ ehpanel_web_panel_port }};
     }
 }

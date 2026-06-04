@@ -17,6 +17,8 @@ ehpanel_web_panel_ssl_enabled: false
 ehpanel_web_panel_ssl_cert: "/etc/letsencrypt/live/{{ ehpanel_web_panel_domain }}/fullchain.pem"
 ehpanel_web_panel_ssl_key: "/etc/letsencrypt/live/{{ ehpanel_web_panel_domain }}/privkey.pem"
 ehpanel_web_panel_acme_webroot: /var/www/html
+ehpanel_web_panel_client_max_body_size: 8g
+ehpanel_web_panel_upload_timeout: 3600s
 ehpanel_web_panel_source_path: ""
 ehpanel_web_panel_secret_key: ""
 ehpanel_web_panel_dbtools_sso_secret: ""
