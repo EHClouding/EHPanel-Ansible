@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export CI="true"
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/sbin:${PATH:-}"
+
+ACTION="${1:-update}"
+DEPLOY_DIR="{{ ehpanel_web_panel_root }}"
+VENV_DIR="{{ ehpanel_web_panel_venv }}"
+SERVICE_NAME="{{ ehpanel_web_panel_service_name }}"
+BRANCH="${EHPANEL_WEB_BRANCH:-{{ ehpanel_web_panel_core_deploy_branch }}}"
+RESTART_DELAY_SECONDS="${EHPANEL_WEB_RESTART_DELAY_SECONDS:-{{ ehpanel_web_panel_core_deploy_restart_delay }}}"
+PNPM_STORE_DIR="${PNPM_STORE_DIR:-/opt/ehpanel/.pnpm-store}"
+
+log() {
+  echo "[$(date '+%H:%M:%S')] $*"
+}
+
+run_panel_env() {
+  local cmd="$1"
+  runuser -u {{ ehpanel_web_panel_user }} -- bash -lc "set -a; . {{ ehpanel_web_panel_env_file }}; set +a; cd '${DEPLOY_DIR}'; ${cmd}"
+}
+
+if [[ "${ACTION}" != "update" && "${ACTION}" != "deploy" ]]; then
+  echo "Unsupported deploy action: ${ACTION}" >&2
+  exit 64
+fi
+
+if [[ ! -d "${DEPLOY_DIR}/.git" ]]; then
+  echo "Deploy directory is not a git checkout: ${DEPLOY_DIR}" >&2
+  exit 65
+fi
+if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
+  echo "Python venv not found: ${VENV_DIR}" >&2
+  exit 66
+fi
+
+cd "${DEPLOY_DIR}"
+git config --global --add safe.directory "${DEPLOY_DIR}" >/dev/null 2>&1 || true
+OLD_COMMIT=$(runuser -u {{ ehpanel_web_panel_user }} -- git rev-parse --short HEAD)
+log "Starting Core deploy action=${ACTION} old_commit=${OLD_COMMIT} branch=${BRANCH}"
+
+log "Fetching origin/${BRANCH}"
+runuser -u {{ ehpanel_web_panel_user }} -- git fetch origin "${BRANCH}"
+log "Resetting checkout to origin/${BRANCH}"
+runuser -u {{ ehpanel_web_panel_user }} -- git reset --hard "origin/${BRANCH}"
+NEW_COMMIT=$(runuser -u {{ ehpanel_web_panel_user }} -- git rev-parse --short HEAD)
+
+log "Installing Python dependencies"
+runuser -u {{ ehpanel_web_panel_user }} -- "${VENV_DIR}/bin/pip" install -r requirements.txt --quiet
+
+log "Running Django migrations"
+run_panel_env "'${VENV_DIR}/bin/python' manage.py migrate --noinput"
+
+log "Running Django system check"
+run_panel_env "'${VENV_DIR}/bin/python' manage.py check"
+
+if [[ -f "frontend/package.json" ]]; then
+  if command -v pnpm >/dev/null 2>&1; then
+    log "Building frontend"
+    install -d -o {{ ehpanel_web_panel_user }} -g {{ ehpanel_web_panel_group }} -m 0750 "${PNPM_STORE_DIR}"
+    BUILD_LOG="/tmp/ehpanel-core-frontend-build-$${RANDOM}.log"
+    set +e
+    runuser -u {{ ehpanel_web_panel_user }} -- bash -lc "cd '${DEPLOY_DIR}/frontend' && echo PATH=\$PATH && command -v pnpm && pnpm --version && CI=true pnpm install --frozen-lockfile --store-dir '${PNPM_STORE_DIR}' && CI=true pnpm run build" >"${BUILD_LOG}" 2>&1
+    BUILD_STATUS=$?
+    set -e
+    cat "${BUILD_LOG}"
+    rm -f "${BUILD_LOG}"
+    if [[ ${BUILD_STATUS} -ne 0 ]]; then
+      echo "Frontend build failed with exit code ${BUILD_STATUS}" >&2
+      exit ${BUILD_STATUS}
+    fi
+  else
+    log "WARNING: pnpm not found; skipping frontend build"
+  fi
+fi
+
+log "Scheduling ${SERVICE_NAME} restart in ${RESTART_DELAY_SECONDS}s"
+if command -v systemd-run >/dev/null 2>&1; then
+  systemd-run --unit="ehpanel-web-core-deploy-restart-$$" --on-active="${RESTART_DELAY_SECONDS}" /usr/bin/systemctl restart "${SERVICE_NAME}" >/dev/null
+else
+  nohup bash -c "sleep '${RESTART_DELAY_SECONDS}'; systemctl restart '${SERVICE_NAME}'" >/dev/null 2>&1 &
+fi
+
+log "Deploy complete old_commit=${OLD_COMMIT} new_commit=${NEW_COMMIT} restart_scheduled=true"

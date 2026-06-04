@@ -90,6 +90,51 @@
     mode: "0440"
     validate: "visudo -cf %s"
 
+- name: Ensure Core deploy wrapper directory
+  ansible.builtin.file:
+    path: "{{ ehpanel_web_panel_core_deploy_script | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - ehpanel_web_panel_core_allow_deploy | bool
+    - ehpanel_web_panel_core_deploy_script | length > 0
+
+- name: Render Core deploy helper
+  ansible.builtin.template:
+    src: ehpanel-web-core-deploy-helper.sh.j2
+    dest: "{{ ehpanel_web_panel_core_deploy_helper }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - ehpanel_web_panel_core_allow_deploy | bool
+    - ehpanel_web_panel_core_deploy_script | length > 0
+
+- name: Render Core deploy wrapper
+  ansible.builtin.template:
+    src: ehpanel-web-core-deploy-wrapper.sh.j2
+    dest: "{{ ehpanel_web_panel_core_deploy_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - ehpanel_web_panel_core_allow_deploy | bool
+    - ehpanel_web_panel_core_deploy_script | length > 0
+
+- name: Render Core deploy sudoers
+  ansible.builtin.template:
+    src: ehpanel-web-core-deploy-sudoers.j2
+    dest: /etc/sudoers.d/ehpanel-core-deploy-web
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+  when:
+    - ehpanel_web_panel_core_allow_deploy | bool
+    - ehpanel_web_panel_core_deploy_script | length > 0
+
 - name: Create Python virtualenv
   ansible.builtin.command:
     cmd: "python3 -m venv {{ ehpanel_web_panel_venv }}"

@@ -33,6 +33,9 @@ ehpanel_web_panel_core_api_user: "ehpanel-core"
 ehpanel_web_panel_core_api_key: ""
 ehpanel_web_panel_core_allow_deploy: "false"
 ehpanel_web_panel_core_deploy_script: ""
+ehpanel_web_panel_core_deploy_helper: /usr/local/sbin/ehpanel-core-deploy-web
+ehpanel_web_panel_core_deploy_branch: main
+ehpanel_web_panel_core_deploy_restart_delay: 5
 ehpanel_web_panel_local_hostname: "{{ inventory_hostname }}"
 ehpanel_web_panel_local_datacenter: ""
 ehpanel_web_panel_local_public_ip: "{{ ansible_default_ipv4.address | default('') }}"

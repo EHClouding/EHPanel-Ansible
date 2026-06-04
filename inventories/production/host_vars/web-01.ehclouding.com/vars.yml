@@ -4,6 +4,8 @@ ehagent_hostname: "web-01.ehclouding.com"
 postfix_hostname: "web-01.ehclouding.com"
 mail_domain: "web-01.ehclouding.com"
 powerdns_listen_address: "184.107.179.221"
+ehpanel_web_panel_core_allow_deploy: "true"
+ehpanel_web_panel_core_deploy_script: /opt/ehpanel-web/scripts/deploy.sh
 
 certbot_email: "lesalinascorp@gmail.com"
 certbot_domains:
