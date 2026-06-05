@@ -92,6 +92,28 @@ con secretos. `.gitignore` deja fuera esos archivos y versiona solo
 
 Detalle del runtime de cuentas: [docs/hosting-runtime-baseline.md](docs/hosting-runtime-baseline.md)
 
+## EHPanel Web local provisioning
+
+El rol `ehpanel_web_panel` instala el helper local desde
+`{{ ehpanel_web_panel_source_path }}/scripts/ehpanel-local-provision.py` hacia
+`/usr/local/sbin/ehpanel-local-provision`. Ese helper es la fuente de verdad para
+operaciones de runtime por cuenta: vhosts Nginx/OpenLiteSpeed, apps Git,
+snippets avanzados y cambios de `document_root`.
+
+Para que el cambio de raiz de sitio funcione de forma persistente, Ansible debe
+mantener disponibles estos paths:
+
+- `/home/<usuario>` para crear la nueva carpeta relativa.
+- `/etc/nginx/conf.d` para reescribir el vhost del dominio.
+- `/etc/nginx/ehpanel-apps` y `/etc/nginx/ehpanel-advanced` para snippets de apps y reglas avanzadas.
+- `/etc/ehpanel/advanced` para configuraciones avanzadas por cuenta.
+- `/usr/local/lsws/conf/vhosts` para actualizar el vhost OpenLiteSpeed.
+
+Cuando EHPanel Web cambia la raiz de un dominio, encola `FILE_MKDIR` y
+`PROVISION_OPENLITESPEED_HOSTING`/`PROVISION_HOSTING`; si el dominio ya tenia SSL
+activo, tambien re-aplica el job SSL para que HTTP y HTTPS apunten al nuevo
+`document_root`.
+
 ## Riesgos pendientes
 
 - **R01**: PHP 7.4 no disponible en repos oficiales de AlmaLinux 10.
