@@ -1,0 +1,125 @@
+---
+- name: Install vsftpd and OpenSSL
+  ansible.builtin.dnf:
+    name:
+      - vsftpd
+      - openssl
+      - policycoreutils-python-utils
+    state: present
+  when: ftp_server_enabled | bool
+
+- name: Ensure vsftpd directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /etc/vsftpd, mode: "0755" }
+    - { path: /var/run/vsftpd/empty, mode: "0555" }
+    - { path: /etc/pki/tls/private, mode: "0700" }
+    - { path: /etc/pki/tls/certs, mode: "0755" }
+  when: ftp_server_enabled | bool
+
+- name: Check FTP TLS certificate
+  ansible.builtin.stat:
+    path: "{{ ftp_server_ssl_cert_file }}"
+  register: ftp_server_cert_stat
+  when: ftp_server_enabled | bool
+
+- name: Check FTP TLS private key
+  ansible.builtin.stat:
+    path: "{{ ftp_server_ssl_key_file }}"
+  register: ftp_server_key_stat
+  when: ftp_server_enabled | bool
+
+- name: Generate FTP TLS certificate when missing
+  ansible.builtin.command:
+    cmd: >-
+      openssl req -x509 -nodes -newkey rsa:2048 -days 825
+      -subj /CN={{ inventory_hostname }}
+      -keyout {{ ftp_server_ssl_key_file }}
+      -out {{ ftp_server_ssl_cert_file }}
+  when:
+    - ftp_server_enabled | bool
+    - not ftp_server_cert_stat.stat.exists or not ftp_server_key_stat.stat.exists
+  notify: restart vsftpd
+
+- name: Secure FTP TLS private key
+  ansible.builtin.file:
+    path: "{{ ftp_server_ssl_key_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  when: ftp_server_enabled | bool
+
+- name: Render vsftpd PAM policy
+  ansible.builtin.template:
+    src: vsftpd.pam.j2
+    dest: /etc/pam.d/vsftpd
+    owner: root
+    group: root
+    mode: "0644"
+  when: ftp_server_enabled | bool
+  notify: restart vsftpd
+
+- name: Render vsftpd configuration
+  ansible.builtin.template:
+    src: vsftpd.conf.j2
+    dest: /etc/vsftpd/vsftpd.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: ftp_server_enabled | bool
+  notify: restart vsftpd
+
+- name: Render FTP banner
+  ansible.builtin.copy:
+    content: "{{ ftp_server_banner }}\n"
+    dest: /etc/vsftpd/banner
+    owner: root
+    group: root
+    mode: "0644"
+  when: ftp_server_enabled | bool
+  notify: restart vsftpd
+
+- name: Enable FTP access to home directories under SELinux
+  ansible.posix.seboolean:
+    name: ftpd_full_access
+    state: true
+    persistent: true
+  when:
+    - ftp_server_enabled | bool
+    - ansible_selinux.status | default("disabled") == "enabled"
+
+- name: Open FTP control port in firewalld
+  ansible.posix.firewalld:
+    zone: "{{ firewall_zone | default('public') }}"
+    port: "{{ ftp_server_listen_port }}/tcp"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - ftp_server_enabled | bool
+    - not ansible_check_mode
+
+- name: Open FTP passive ports in firewalld
+  ansible.posix.firewalld:
+    zone: "{{ firewall_zone | default('public') }}"
+    port: "{{ ftp_server_pasv_min_port }}-{{ ftp_server_pasv_max_port }}/tcp"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - ftp_server_enabled | bool
+    - not ansible_check_mode
+
+- name: Enable and start vsftpd
+  ansible.builtin.systemd:
+    name: "{{ ftp_server_service_name }}"
+    enabled: true
+    state: started
+  when:
+    - ftp_server_enabled | bool
+    - not ansible_check_mode

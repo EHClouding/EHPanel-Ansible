@@ -10,6 +10,7 @@ php_versions:
 node_services_enabled:
   - nginx
   - httpd
+  - lshttpd
   - mariadb
   - postgresql
   - valkey
@@ -17,6 +18,10 @@ node_services_enabled:
   - postfix
   - dovecot
   - rspamd
+  - vsftpd
+  - ehpanel-web
   - ehagent-web
 
-firewall_additional_ports: []
+firewall_additional_ports:
+  - "21/tcp"
+  - "30000-30100/tcp"

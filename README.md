@@ -88,6 +88,7 @@ con secretos. `.gitignore` deja fuera esos archivos y versiona solo
 | 17 | `certbot` | Implementado | Certbot/ACME |
 | 18 | `ehagent` | Implementado | EHPanel Web Agent |
 | 19 | `hosting-runtime` | Implementado | Baseline por cuenta: snippets, SELinux, ACL WordPress |
+| 20 | `ftp_server` | Implementado | FTP/FTPES con vsftpd, modo pasivo y firewalld |
 
 Detalle del runtime de cuentas: [docs/hosting-runtime-baseline.md](docs/hosting-runtime-baseline.md)
 

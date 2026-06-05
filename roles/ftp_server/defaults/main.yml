@@ -1,0 +1,11 @@
+---
+ftp_server_enabled: true
+ftp_server_service_name: vsftpd
+ftp_server_listen_port: 21
+ftp_server_pasv_min_port: 30000
+ftp_server_pasv_max_port: 30100
+ftp_server_pasv_address: "{{ ansible_host | default(ansible_default_ipv4.address | default('')) }}"
+ftp_server_ssl_cert_file: /etc/pki/tls/certs/ehpanel-vsftpd.pem
+ftp_server_ssl_key_file: /etc/pki/tls/private/ehpanel-vsftpd.key
+ftp_server_banner: "EHPanel FTP service"
+ftp_server_force_tls: false

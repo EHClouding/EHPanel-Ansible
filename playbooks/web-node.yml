@@ -34,6 +34,9 @@
     - role: firewall
       tags: [firewall, network]
 
+    - role: ftp_server
+      tags: [ftp, ftps, network]
+
     - role: nginx
       tags: [nginx, web]
 

@@ -1,0 +1,38 @@
+listen=YES
+listen_ipv6=NO
+listen_port={{ ftp_server_listen_port }}
+
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+local_umask=022
+dirmessage_enable=YES
+xferlog_enable=YES
+dual_log_enable=YES
+log_ftp_protocol=YES
+connect_from_port_20=YES
+
+chroot_local_user=YES
+allow_writeable_chroot=YES
+secure_chroot_dir=/var/run/vsftpd/empty
+pam_service_name=vsftpd
+userlist_enable=NO
+
+pasv_enable=YES
+pasv_min_port={{ ftp_server_pasv_min_port }}
+pasv_max_port={{ ftp_server_pasv_max_port }}
+{% if ftp_server_pasv_address | length > 0 %}
+pasv_address={{ ftp_server_pasv_address }}
+{% endif %}
+
+ssl_enable=YES
+allow_anon_ssl=NO
+force_local_logins_ssl={{ 'YES' if ftp_server_force_tls | bool else 'NO' }}
+force_local_data_ssl={{ 'YES' if ftp_server_force_tls | bool else 'NO' }}
+rsa_cert_file={{ ftp_server_ssl_cert_file }}
+rsa_private_key_file={{ ftp_server_ssl_key_file }}
+require_ssl_reuse=NO
+ssl_ciphers=HIGH
+
+utf8_filesystem=YES
+banner_file=/etc/vsftpd/banner
