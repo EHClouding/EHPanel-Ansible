@@ -42,6 +42,7 @@ ehpanel_web_panel_local_hostname: "{{ inventory_hostname }}"
 ehpanel_web_panel_local_datacenter: ""
 ehpanel_web_panel_local_public_ip: "{{ ansible_default_ipv4.address | default('') }}"
 ehpanel_web_panel_local_helper: /usr/local/sbin/ehpanel-local-provision
+ehpanel_web_panel_local_job_runner: /usr/local/sbin/ehpanel-local-job-runner
 ehpanel_web_panel_pnpm_bin: /usr/local/bin/pnpm
 ehpanel_web_panel_local_dry_run: "false"
 ehpanel_web_panel_local_sudo: "true"

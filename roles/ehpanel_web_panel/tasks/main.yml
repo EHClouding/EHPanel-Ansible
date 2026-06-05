@@ -69,8 +69,16 @@
     dest: "{{ ehpanel_web_panel_local_helper }}"
     owner: root
     group: root
-    mode: "0750"
+  mode: "0750"
   when: ehpanel_web_panel_source_path | length > 0
+
+- name: Render local background job runner
+  ansible.builtin.template:
+    src: ehpanel-local-job-runner.sh.j2
+    dest: "{{ ehpanel_web_panel_local_job_runner }}"
+    owner: root
+    group: root
+    mode: "0750"
 
 - name: Render EHPanel Web environment
   ansible.builtin.template:

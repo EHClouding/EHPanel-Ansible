@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_ROOT="{{ ehpanel_web_panel_root }}"
+APP_USER="{{ ehpanel_web_panel_user }}"
+VENV_PYTHON="{{ ehpanel_web_panel_venv }}/bin/python"
+ENV_FILE="{{ ehpanel_web_panel_env_file }}"
+LOG_DIR="/var/log/ehpanel/local-jobs"
+
+die() {
+  echo "$1" >&2
+  exit 1
+}
+
+JOB_ID="${1:-}"
+shift || true
+[[ "${JOB_ID}" =~ ^[0-9a-fA-F-]{32,36}$ ]] || die "Invalid job id."
+
+MANAGE_ARGS=("${JOB_ID}")
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --run-id|--account-id)
+      key="$1"
+      value="${2:-}"
+      [[ "${value}" =~ ^[0-9a-fA-F-]{32,36}$ ]] || die "Invalid value for ${key}."
+      MANAGE_ARGS+=("${key}" "${value}")
+      shift 2
+      ;;
+    *)
+      die "Unsupported argument: $1"
+      ;;
+  esac
+done
+
+install -d -o "{{ ehpanel_web_panel_user }}" -g "{{ ehpanel_web_panel_group }}" -m 0750 "${LOG_DIR}"
+UNIT="ehpanel-local-job-${JOB_ID//-/}"
+CHILD_COMMAND="$(declare -f run_job); APP_ROOT='${APP_ROOT}' APP_USER='${APP_USER}' VENV_PYTHON='${VENV_PYTHON}' ENV_FILE='${ENV_FILE}' LOG_DIR='${LOG_DIR}' MANAGE_ARGS=($(printf "%q " "${MANAGE_ARGS[@]}")); run_job >>'${LOG_DIR}/${JOB_ID}.log' 2>&1"
+
+run_job() {
+  cd "${APP_ROOT}"
+  exec runuser -u "${APP_USER}" -- env ENV_FILE="${ENV_FILE}" "${VENV_PYTHON}" manage.py run_local_job "${MANAGE_ARGS[@]}"
+}
+
+if command -v systemd-run >/dev/null 2>&1; then
+  systemd-run \
+    --unit="${UNIT}" \
+    --collect \
+    --property=WorkingDirectory="${APP_ROOT}" \
+    /bin/bash -lc "${CHILD_COMMAND}" >/dev/null
+else
+  nohup /bin/bash -lc "${CHILD_COMMAND}" >/dev/null 2>&1 &
+fi
+
+echo "Started ${JOB_ID}."
