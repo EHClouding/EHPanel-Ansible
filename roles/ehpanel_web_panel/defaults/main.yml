@@ -44,6 +44,7 @@ ehpanel_web_panel_local_public_ip: "{{ ansible_default_ipv4.address | default(an
 ehpanel_web_panel_billing_sso_max_age: 180
 ehpanel_web_panel_local_helper: /usr/local/sbin/ehpanel-local-provision
 ehpanel_web_panel_local_job_runner: /usr/local/sbin/ehpanel-local-job-runner
+ehpanel_web_panel_terminal_pty_helper: /usr/local/sbin/ehpanel-terminal-pty
 ehpanel_web_panel_pnpm_bin: /usr/local/bin/pnpm
 ehpanel_web_panel_local_dry_run: "false"
 ehpanel_web_panel_local_sudo: "true"

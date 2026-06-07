@@ -69,7 +69,16 @@
     dest: "{{ ehpanel_web_panel_local_helper }}"
     owner: root
     group: root
-  mode: "0750"
+    mode: "0750"
+  when: ehpanel_web_panel_source_path | length > 0
+
+- name: Install interactive terminal PTY broker
+  ansible.builtin.copy:
+    src: "{{ ehpanel_web_panel_source_path }}/scripts/ehpanel-terminal-pty.py"
+    dest: "{{ ehpanel_web_panel_terminal_pty_helper }}"
+    owner: root
+    group: root
+    mode: "0755"
   when: ehpanel_web_panel_source_path | length > 0
 
 - name: Render local background job runner
