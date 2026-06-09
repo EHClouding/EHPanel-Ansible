@@ -2,7 +2,7 @@
 dovecot_packages:
   - dovecot
   - policycoreutils-python-utils
-dovecot_protocols:    "imap lmtp"
+dovecot_protocols:    "imap pop3 lmtp"
 dovecot_mail_location: "maildir:~/Maildir"
 dovecot_auth_mechanisms: "plain login"
 dovecot_first_valid_uid: 100
@@ -20,4 +20,7 @@ dovecot_ssl_cert:     "/etc/pki/tls/certs/ehpanel-postfix.pem"
 dovecot_ssl_key:      "/etc/pki/tls/private/ehpanel-postfix.key"
 dovecot_imap_plain_port: 143
 dovecot_imap_port:    993
+dovecot_pop3_plain_port: 110
+dovecot_pop3_port:    995
+dovecot_postfix_auth_socket: "/var/spool/postfix/private/auth"
 dovecot_lmtp_socket:  "/var/spool/postfix/private/dovecot-lmtp"

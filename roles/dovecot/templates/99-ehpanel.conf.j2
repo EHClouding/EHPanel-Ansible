@@ -26,6 +26,25 @@ service imap-login {
   }
 }
 
+service pop3-login {
+  inet_listener pop3 {
+    port = {{ dovecot_pop3_plain_port }}
+  }
+
+  inet_listener pop3s {
+    port = {{ dovecot_pop3_port }}
+    ssl = yes
+  }
+}
+
+service auth {
+  unix_listener {{ dovecot_postfix_auth_socket }} {
+    mode = 0660
+    user = postfix
+    group = postfix
+  }
+}
+
 service lmtp {
   unix_listener {{ dovecot_lmtp_socket }} {
     mode = 0600
@@ -36,6 +55,10 @@ service lmtp {
 
 protocol imap {
   mail_plugins = {{ dovecot_imap_mail_plugins }}
+}
+
+protocol pop3 {
+  mail_plugins = {{ dovecot_mail_plugins }}
 }
 
 plugin {

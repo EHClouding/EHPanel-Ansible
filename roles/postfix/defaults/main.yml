@@ -21,3 +21,6 @@ postfix_smtpd_recipient_restrictions: "permit_mynetworks, permit_sasl_authentica
 postfix_max_message_size: 52428800
 postfix_inet_interfaces: "all"
 postfix_inet_protocols: "ipv4"
+postfix_smtpd_sasl_auth_enable: true
+postfix_smtpd_sasl_type: dovecot
+postfix_smtpd_sasl_path: private/auth

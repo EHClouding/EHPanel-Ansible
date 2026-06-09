@@ -34,6 +34,14 @@ readme_directory = no
 
 smtpd_relay_restrictions = {{ postfix_smtpd_relay_restrictions }}
 smtpd_recipient_restrictions = {{ postfix_smtpd_recipient_restrictions }}
+{% if postfix_smtpd_sasl_auth_enable %}
+smtpd_sasl_auth_enable = yes
+smtpd_sasl_type = {{ postfix_smtpd_sasl_type }}
+smtpd_sasl_path = {{ postfix_smtpd_sasl_path }}
+broken_sasl_auth_clients = yes
+{% else %}
+smtpd_sasl_auth_enable = no
+{% endif %}
 
 {% if postfix_smtpd_tls %}
 smtpd_tls_security_level = may

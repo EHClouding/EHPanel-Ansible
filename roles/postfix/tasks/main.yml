@@ -90,6 +90,15 @@
     mode: "0644"
   notify: restart postfix
 
+- name: Configure Postfix master.cf
+  ansible.builtin.template:
+    src: master.cf.j2
+    dest: /etc/postfix/master.cf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart postfix
+
 - name: Validate Postfix configuration
   ansible.builtin.command: postfix check
   changed_when: false
