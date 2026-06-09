@@ -64,6 +64,9 @@ ehpanel_web_panel_local_webmail_port: 8012
 ehpanel_web_panel_local_dovecot_passwd_file: /etc/dovecot/ehpanel-users
 ehpanel_web_panel_local_postfix_virtual_domains_file: /etc/postfix/ehpanel-virtual-domains
 ehpanel_web_panel_local_postfix_virtual_mailboxes_file: /etc/postfix/ehpanel-virtual-mailboxes
+ehpanel_web_panel_local_postfix_tls_sni_map_file: /etc/postfix/ehpanel-tls-sni
+ehpanel_web_panel_local_postfix_tls_sni_chain_dir: /etc/postfix/ehpanel-sni-chains
+ehpanel_web_panel_local_dovecot_tls_sni_conf_file: /etc/dovecot/conf.d/99-ehpanel-sni.conf
 ehpanel_web_panel_local_file_manager_temp_root: "{{ ehpanel_web_panel_root }}/media/file-manager"
 ehpanel_web_panel_local_moodle_download_url: ""
 ehagent_enabled: false
